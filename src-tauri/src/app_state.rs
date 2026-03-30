@@ -19,7 +19,7 @@ impl AppState {
       .app_data_dir()
       .map_err(|error| AppError::new(error.to_string()))?;
     std::fs::create_dir_all(&app_dir)?;
-    let db_path = app_dir.join("dayz-launcher.sqlite3");
+    let db_path = app_dir.join("linuxz.sqlite3");
     let connection = Connection::open(&db_path)?;
     connection.execute_batch(
       "

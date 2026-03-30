@@ -172,7 +172,7 @@ mod tests {
 
   #[test]
   fn prefers_direct_proton_when_binary_exists() {
-    let temp = std::env::temp_dir().join(format!("dayz-launcher-test-{}", std::process::id()));
+    let temp = std::env::temp_dir().join(format!("linuxz-test-{}", std::process::id()));
     let proton_dir = temp.join("steamapps/common/Proton - Experimental");
     std::fs::create_dir_all(&proton_dir).expect("test proton dir");
     std::fs::write(proton_dir.join("proton"), b"#!/bin/sh").expect("test proton file");

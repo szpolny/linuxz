@@ -28,7 +28,7 @@ export function AppShell() {
         <div className="window-drag" data-tauri-drag-region={true}>
           <div className="window-meta">
             <span className="window-appdot" />
-            <span className="window-title">DayZ Launcher</span>
+            <span className="window-title">LinuxZ</span>
           </div>
         </div>
         {isTauriWindow ? (
@@ -48,7 +48,7 @@ export function AppShell() {
       <header className="topbar">
         <div className="brand">
           <div>
-            <h1>DayZ Launcher</h1>
+            <h1>LinuxZ</h1>
             <p>BattleMetrics browser, DZSA enrichment, Steam-aware launch flow.</p>
           </div>
         </div>
