@@ -1,9 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Monitor, Save, Settings, Shield, Info, Zap } from 'lucide-react'
+import { Monitor, Save, Settings, Shield, Info, Zap, User, Loader2, AlertTriangle } from 'lucide-react'
 import { bootstrapScan, getSettings, saveSettings } from '../lib/api.ts'
 import type { LaunchSettings } from '../lib/contracts.ts'
+import { Input } from '../components/ui/Input.tsx'
+import { Skeleton } from '../components/ui/Skeleton.tsx'
+import { EmptyState } from '../components/ui/EmptyState.tsx'
 
 function getEnvironmentBadge(condition: boolean, positive: string, negative: string) {
   return condition ? positive : negative
@@ -50,7 +53,20 @@ export function OnboardingRoute() {
     return (
       <div className="onboarding-shell">
         <section className="onboarding-card">
-          <div className="empty">Preparing first-launch setup...</div>
+          <div className="onboarding-hero-card">
+            <div className="onboarding-header">
+              <div className="stack" style={{ gap: '12px', width: '100%' }}>
+                <Skeleton style={{ height: '24px', width: '120px', borderRadius: '999px' }} />
+                <Skeleton style={{ height: '48px', width: '80%' }} />
+                <Skeleton style={{ height: '24px', width: '60%' }} />
+              </div>
+            </div>
+            <div className="onboarding-summary" style={{ marginTop: '32px' }}>
+              {[1, 2, 3].map(i => (
+                <Skeleton key={i} style={{ height: '100px', borderRadius: '18px' }} />
+              ))}
+            </div>
+          </div>
         </section>
       </div>
     )
@@ -60,7 +76,11 @@ export function OnboardingRoute() {
     return (
       <div className="onboarding-shell">
         <section className="onboarding-card">
-          <div className="empty">Setup data could not be loaded.</div>
+          <EmptyState 
+            icon={AlertTriangle} 
+            title="Setup failed" 
+            description="Setup data could not be loaded. Please check your Steam installation." 
+          />
         </section>
       </div>
     )
@@ -89,7 +109,7 @@ export function OnboardingRoute() {
               onClick={() => saveMutation.mutate()}
               type="button"
             >
-              <Save size={16} />
+              {saveMutation.isPending ? <Loader2 size={16} className="spin" /> : <Save size={16} />}
               {saveMutation.isPending ? 'Saving Setup...' : 'Continue to Launcher'}
             </button>
             {saveMutation.error ? <div className="badge badge-bad">Could not save setup.</div> : null}
@@ -122,17 +142,16 @@ export function OnboardingRoute() {
             <span className="badge">Saved locally</span>
           </div>
           <div className="settings-grid">
-            <div className="field">
-              <label htmlFor="onboardingPlayerName">Default Player Name</label>
-              <input
-                id="onboardingPlayerName"
-                value={form.defaultPlayerName}
-                onChange={(event) => {
-                  setForm({ ...form, defaultPlayerName: event.target.value })
-                }}
-                placeholder="survivor"
-              />
-            </div>
+            <Input
+              id="onboardingPlayerName"
+              icon={User}
+              label="Default Player Name"
+              value={form.defaultPlayerName}
+              onChange={(event) => {
+                setForm({ ...form, defaultPlayerName: event.target.value })
+              }}
+              placeholder="survivor"
+            />
             <div className="field">
               <label>Launch Mode</label>
               <input value="Direct Proton (Linux Optimized)" disabled />
@@ -157,20 +176,18 @@ export function OnboardingRoute() {
                 ))}
               </select>
             </div>
-            <div className="field">
-              <label htmlFor="onboardingProtonPath">Proton Binary Path</label>
-              <input
-                id="onboardingProtonPath"
-                placeholder="/path/to/proton"
-                value={form.preferredProtonPath ?? ''}
-                onChange={(event) => {
-                  setForm({
-                    ...form,
-                    preferredProtonPath: event.target.value || null,
-                  })
-                }}
-              />
-            </div>
+            <Input
+              id="onboardingProtonPath"
+              label="Proton Binary Path"
+              placeholder="/path/to/proton"
+              value={form.preferredProtonPath ?? ''}
+              onChange={(event) => {
+                setForm({
+                  ...form,
+                  preferredProtonPath: event.target.value || null,
+                })
+              }}
+            />
             <div className="field field-wide">
               <label htmlFor="onboardingCustomLaunchCommand">Custom Launch Command</label>
               <textarea
@@ -276,9 +293,9 @@ export function OnboardingRoute() {
                 </div>
               </div>
             ) : (
-              <div className="empty">
-                Install DayZ in Steam or point LinuxZ at the correct Steam library, then reopen Settings later if needed.
-              </div>
+              <EmptyState 
+                description="Install DayZ in Steam or point LinuxZ at the correct Steam library, then reopen Settings later if needed." 
+              />
             )}
           </div>
         </section>

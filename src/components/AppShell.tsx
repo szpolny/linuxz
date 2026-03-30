@@ -1,6 +1,10 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
-import { NavLink, Outlet } from 'react-router-dom'
-import { Search, Package, Settings, Minus, Square, X } from 'lucide-react'
+import { NavLink, Outlet, Link } from 'react-router-dom'
+import { Search, Package, Settings, Minus, Square, X, Star, History, Users, Wifi } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { getServerLibrary } from '../lib/api.ts'
+import type { ServerRecord } from '../lib/contracts.ts'
+import { Skeleton } from './ui/Skeleton.tsx'
 
 const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 
@@ -22,7 +26,30 @@ async function closeWindow() {
   await getCurrentWindow().close()
 }
 
+function SidebarServerRow({ server }: { server: ServerRecord }) {
+  return (
+    <Link className="sidebar-server-row" to={`/servers/${encodeURIComponent(server.endpoint)}`}>
+      <div className="sidebar-server-info">
+        <span className="sidebar-server-name">{server.displayName}</span>
+        <div className="sidebar-server-stats">
+          <span className="sidebar-stat">
+            <Users size={12} /> {server.players}
+          </span>
+          <span className="sidebar-stat">
+            <Wifi size={12} /> {server.ping ?? '?'}
+          </span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 export function AppShell() {
+  const libraryQuery = useQuery({
+    queryKey: ['server-library'],
+    queryFn: getServerLibrary,
+  })
+
   return (
     <div className="shell">
       <header className="window-bar">
@@ -67,6 +94,40 @@ export function AppShell() {
             <span>Settings</span>
           </NavLink>
         </nav>
+
+        <div className="sidebar-section">
+          <div className="sidebar-section-header">
+            <Star size={14} /> <span>Favorites</span>
+          </div>
+          <div className="sidebar-list">
+            {libraryQuery.isLoading ? (
+              [1, 2].map((i) => <Skeleton key={i} style={{ height: '40px', marginBottom: '4px' }} />)
+            ) : libraryQuery.data?.favorites.length === 0 ? (
+              <div className="sidebar-empty">No favorites</div>
+            ) : (
+              libraryQuery.data?.favorites.slice(0, 5).map((server) => (
+                <SidebarServerRow key={server.endpoint} server={server} />
+              ))
+            )}
+          </div>
+        </div>
+
+        <div className="sidebar-section">
+          <div className="sidebar-section-header">
+            <History size={14} /> <span>Recently Played</span>
+          </div>
+          <div className="sidebar-list">
+            {libraryQuery.isLoading ? (
+              [1, 2].map((i) => <Skeleton key={i} style={{ height: '40px', marginBottom: '4px' }} />)
+            ) : libraryQuery.data?.recents.length === 0 ? (
+              <div className="sidebar-empty">No recents</div>
+            ) : (
+              libraryQuery.data?.recents.slice(0, 5).map((server) => (
+                <SidebarServerRow key={server.endpoint} server={server} />
+              ))
+            )}
+          </div>
+        </div>
       </aside>
 
       <main className="main-content">

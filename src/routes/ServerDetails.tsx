@@ -4,7 +4,25 @@ import { Link, useParams } from 'react-router-dom'
 import { getJobStatus, getServerDetails, getSettings, launchServer, prepareJoin, saveServerFavorite } from '../lib/api.ts'
 import type { JoinPreparationRequest, LaunchSettings, ServerDetails } from '../lib/contracts.ts'
 import { JoinJobPanel } from '../components/JoinJobPanel.tsx'
-import { ArrowLeft, Play, Shield, Box, AlertTriangle, Activity, Globe, Users, Map as MapIcon, Star, History } from 'lucide-react'
+import { 
+  ArrowLeft, 
+  Play, 
+  Shield, 
+  Box, 
+  AlertTriangle, 
+  Activity, 
+  Globe, 
+  Users, 
+  Map as MapIcon, 
+  Star, 
+  History,
+  Copy,
+  Check,
+  Loader2,
+  ServerOff
+} from 'lucide-react'
+import { EmptyState } from '../components/ui/EmptyState.tsx'
+import { Skeleton } from '../components/ui/Skeleton.tsx'
 
 function createJoinRequest(details: ServerDetails, settings: LaunchSettings): JoinPreparationRequest {
   return {
@@ -33,6 +51,7 @@ export function ServerDetailsRoute() {
   const params = useParams()
   const endpoint = decodeURIComponent(params['endpoint'] ?? '')
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const queryClient = useQueryClient()
 
   const settingsQuery = useQuery({
@@ -112,6 +131,13 @@ export function ServerDetailsRoute() {
     void queryClient.invalidateQueries({ queryKey: ['server-details', endpoint] })
   }, [endpoint, jobQuery.data?.phase, queryClient])
 
+  const handleCopy = () => {
+    if (!details) return
+    void navigator.clipboard.writeText(details.server.endpoint)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <div className="grid two-column">
       <section className="card">
@@ -119,23 +145,44 @@ export function ServerDetailsRoute() {
           <h2><Activity size={20} className="stat-icon" /> Server Details</h2>
           <div className="button-row">
             {details ? (
-              <button
-                className={`button ${details.server.isFavorite ? 'favorite-toggle-active' : ''}`}
-                disabled={favoriteMutation.isPending}
-                onClick={() => favoriteMutation.mutate()}
-                type="button"
-              >
-                <Star fill={details.server.isFavorite ? 'currentColor' : 'none'} size={16} />
-                {details.server.isFavorite ? 'Favorited' : 'Favorite'}
-              </button>
+              <>
+                <button
+                  className="button button-icon"
+                  onClick={handleCopy}
+                  title="Copy IP Address"
+                  aria-label="Copy IP Address"
+                >
+                  {copied ? <Check size={16} className="ping-good" /> : <Copy size={16} />}
+                </button>
+                <button
+                  className={`button ${details.server.isFavorite ? 'favorite-toggle-active' : ''}`}
+                  disabled={favoriteMutation.isPending}
+                  onClick={() => favoriteMutation.mutate()}
+                  type="button"
+                >
+                  <Star fill={details.server.isFavorite ? 'currentColor' : 'none'} size={16} />
+                  {details.server.isFavorite ? 'Favorited' : 'Favorite'}
+                </button>
+              </>
             ) : null}
             <Link className="button" to="/servers">
               <ArrowLeft size={16} /> Back
             </Link>
           </div>
         </div>
-        {detailsQuery.isLoading ? <div className="empty">Loading server details...</div> : null}
-        {detailsQuery.error ? <div className="empty">Could not resolve the selected server.</div> : null}
+        {detailsQuery.isLoading ? (
+          <div className="stack">
+            <div className="details-grid">
+              {[1, 2, 3, 4, 5].map(i => (
+                <div key={i} className="detail-item">
+                  <Skeleton style={{ height: '14px', width: '40%', marginBottom: '8px' }} />
+                  <Skeleton style={{ height: '18px', width: '80%' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {detailsQuery.error ? <EmptyState icon={ServerOff} description="Could not resolve the selected server." /> : null}
         {details ? (
           <div className="stack">
             <div className="details-grid">
@@ -145,7 +192,9 @@ export function ServerDetailsRoute() {
               </div>
               <div className="detail-item">
                 <div className="muted">Endpoint</div>
-                <div>{details.server.endpoint}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {details.server.endpoint}
+                </div>
               </div>
               <div className="detail-item">
                 <div className="muted"><History size={14} inline-block /> Last Played</div>
@@ -182,7 +231,7 @@ export function ServerDetailsRoute() {
                 <span className="badge">{details.requiredMods.length}</span>
               </div>
               {details.requiredMods.length === 0 ? (
-                <div className="empty">No required workshop mods were detected.</div>
+                <EmptyState description="No required workshop mods were detected." />
               ) : (
                 <div className="mod-list">
                   {details.requiredMods.map((mod) => (
@@ -227,11 +276,27 @@ export function ServerDetailsRoute() {
             </div>
             
             <div className="button-row" style={{ marginTop: '12px' }}>
-              <button className="button" style={{ flex: 1 }} onClick={() => prepareMutation.mutate()} type="button">
-                Verify Connection
+              <button 
+                className="button" 
+                style={{ flex: 1 }} 
+                onClick={() => prepareMutation.mutate()} 
+                type="button"
+                disabled={prepareMutation.isPending}
+              >
+                {prepareMutation.isPending ? <Loader2 size={16} className="spin" /> : 'Verify Connection'}
               </button>
-              <button className="button button-primary" style={{ flex: 1.5 }} onClick={() => launchMutation.mutate()} type="button">
-                <Play size={16} fill="currentColor" /> Launch DayZ
+              <button 
+                className="button button-primary" 
+                style={{ flex: 1.5 }} 
+                onClick={() => launchMutation.mutate()} 
+                type="button"
+                disabled={launchMutation.isPending}
+              >
+                {launchMutation.isPending ? <Loader2 size={16} className="spin" /> : (
+                  <>
+                    <Play size={16} fill="currentColor" /> Launch DayZ
+                  </>
+                )}
               </button>
             </div>
 
@@ -261,7 +326,17 @@ export function ServerDetailsRoute() {
             <JoinJobPanel status={jobQuery.data ?? launchMutation.data} />
           </div>
         ) : (
-          <div className="empty">Ready once server details load.</div>
+          detailsQuery.isLoading ? (
+            <div className="stack">
+              <Skeleton style={{ height: '60px', borderRadius: '12px' }} />
+              <div className="button-row">
+                <Skeleton style={{ height: '40px', flex: 1, borderRadius: '12px' }} />
+                <Skeleton style={{ height: '40px', flex: 1.5, borderRadius: '12px' }} />
+              </div>
+            </div>
+          ) : (
+            <EmptyState description="Ready once server details load." />
+          )
         )}
       </section>
     </div>

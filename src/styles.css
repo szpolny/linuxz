@@ -77,6 +77,24 @@ button {
   border-radius: 999px;
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.skeleton {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.14);
 }
@@ -197,6 +215,86 @@ button {
   background: var(--accent-soft);
   color: var(--accent);
   border: 1px solid rgba(255, 138, 61, 0.15);
+}
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.sidebar-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+.sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-server-row {
+  display: flex;
+  padding: 8px 12px;
+  border-radius: 10px;
+  transition: all 150ms ease;
+  border: 1px solid transparent;
+}
+
+.sidebar-server-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border);
+}
+
+.sidebar-server-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+}
+
+.sidebar-server-name {
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.sidebar-server-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.sidebar-stat {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sidebar-empty {
+  padding: 12px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+  font-style: italic;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
 }
 
 .main-content {
@@ -732,7 +830,7 @@ button {
     width: 80px;
     padding: 24px 12px;
   }
-  .sidebar-brand h1, .sidebar-brand p, .nav-link span {
+  .sidebar-brand h1, .sidebar-brand p, .nav-link span, .sidebar-section {
     display: none;
   }
   .nav-link {

@@ -3,7 +3,10 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { bootstrapScan, getSettings, saveSettings } from '../lib/api.ts'
 import type { LaunchSettings } from '../lib/contracts.ts'
-import { Settings, Save, Cpu, Monitor, Zap, Shield, Info } from 'lucide-react'
+import { Settings, Save, Cpu, Monitor, Zap, Shield, Info, Loader2, AlertTriangle, User } from 'lucide-react'
+import { Input } from '../components/ui/Input.tsx'
+import { Skeleton } from '../components/ui/Skeleton.tsx'
+import { EmptyState } from '../components/ui/EmptyState.tsx'
 
 export function SettingsRoute() {
   const navigate = useNavigate()
@@ -64,21 +67,31 @@ export function SettingsRoute() {
             {saveMutation.isSuccess ? 'Settings Saved' : 'Local Configuration'}
           </span>
         </div>
-        {!form ? <div className="empty">Loading settings...</div> : null}
+        {!form ? (
+          <div className="stack">
+            <div className="settings-grid">
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} className="field">
+                  <Skeleton style={{ height: '14px', width: '40%', marginBottom: '8px' }} />
+                  <Skeleton style={{ height: '40px', width: '100%', borderRadius: '10px' }} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
         {form ? (
           <div className="stack">
             <div className="settings-grid">
-              <div className="field">
-                <label htmlFor="defaultPlayerName">Default Player Name</label>
-                <input
-                  id="defaultPlayerName"
-                  value={form.defaultPlayerName}
-                  onChange={(event) => {
-                    setForm({ ...form, defaultPlayerName: event.target.value })
-                  }}
-                  placeholder="Survivor"
-                />
-              </div>
+              <Input
+                id="defaultPlayerName"
+                icon={User}
+                label="Default Player Name"
+                value={form.defaultPlayerName}
+                onChange={(event) => {
+                  setForm({ ...form, defaultPlayerName: event.target.value })
+                }}
+                placeholder="Survivor"
+              />
               <div className="field">
                 <label>Launch Mode</label>
                 <input value="Direct Proton (Linux Optimized)" disabled />
@@ -103,20 +116,18 @@ export function SettingsRoute() {
                   ))}
                 </select>
               </div>
-              <div className="field">
-                <label htmlFor="preferredProtonPath">Proton Binary Path</label>
-                <input
-                  id="preferredProtonPath"
-                  placeholder="/path/to/proton"
-                  value={form.preferredProtonPath ?? ''}
-                  onChange={(event) => {
-                    setForm({
-                      ...form,
-                      preferredProtonPath: event.target.value || null,
-                    })
-                  }}
-                />
-              </div>
+              <Input
+                id="preferredProtonPath"
+                label="Proton Binary Path"
+                placeholder="/path/to/proton"
+                value={form.preferredProtonPath ?? ''}
+                onChange={(event) => {
+                  setForm({
+                    ...form,
+                    preferredProtonPath: event.target.value || null,
+                  })
+                }}
+              />
               <div className="field field-wide">
                 <label htmlFor="customLaunchCommand">Custom Launch Command</label>
                 <textarea
@@ -171,11 +182,29 @@ export function SettingsRoute() {
               </div>
             </div>
             <div className="button-row" style={{ marginTop: '12px' }}>
-              <button className="button button-primary" onClick={() => saveMutation.mutate()} type="button">
-                <Save size={16} /> Save Changes
+              <button 
+                className="button button-primary" 
+                onClick={() => saveMutation.mutate()} 
+                type="button"
+                disabled={saveMutation.isPending}
+              >
+                {saveMutation.isPending ? <Loader2 size={16} className="spin" /> : (
+                  <>
+                    <Save size={16} /> Save Changes
+                  </>
+                )}
               </button>
-              <button className="button" onClick={() => resetOnboardingMutation.mutate()} type="button">
-                <Settings size={16} /> Run Onboarding Again
+              <button 
+                className="button" 
+                onClick={() => resetOnboardingMutation.mutate()} 
+                type="button"
+                disabled={resetOnboardingMutation.isPending}
+              >
+                {resetOnboardingMutation.isPending ? <Loader2 size={16} className="spin" /> : (
+                  <>
+                    <Settings size={16} /> Run Onboarding Again
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -191,8 +220,19 @@ export function SettingsRoute() {
             </span>
           ) : null}
         </div>
-        {bootstrapQuery.isLoading ? <div className="empty">Scanning Steam environment...</div> : null}
-        {bootstrapQuery.error ? <div className="empty">Bootstrap scan failed.</div> : null}
+        {bootstrapQuery.isLoading ? (
+           <div className="stack">
+              <div className="details-grid">
+                {[1, 2, 3].map(i => (
+                  <div key={i} className="detail-item">
+                    <Skeleton style={{ height: '14px', width: '40%', marginBottom: '8px' }} />
+                    <Skeleton style={{ height: '18px', width: '80%' }} />
+                  </div>
+                ))}
+              </div>
+           </div>
+        ) : null}
+        {bootstrapQuery.error ? <EmptyState icon={AlertTriangle} description="Bootstrap scan failed." /> : null}
         {bootstrapQuery.data ? (
           <div className="stack">
             <div className="details-grid">

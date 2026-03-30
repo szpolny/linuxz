@@ -15,7 +15,14 @@ import {
   LayoutGrid,
   Star,
   History,
+  RefreshCw,
+  SearchX,
+  ServerOff,
+  Play,
 } from 'lucide-react'
+import { ServerCardSkeleton } from '../components/ui/Skeleton.tsx'
+import { EmptyState } from '../components/ui/EmptyState.tsx'
+import { Input } from '../components/ui/Input.tsx'
 
 function getPingClass(ping: number | null) {
   if (ping === null) return ''
@@ -106,39 +113,6 @@ function ServerCard({ server, onToggleFavorite, pendingEndpoint }: ServerCardPro
   )
 }
 
-type ServerShelfProps = {
-  title: string
-  emptyLabel: string
-  servers: ServerRecord[]
-  pendingEndpoint: string | null
-  onToggleFavorite: (server: ServerRecord) => void
-}
-
-function ServerShelf({ title, emptyLabel, servers, pendingEndpoint, onToggleFavorite }: ServerShelfProps) {
-  return (
-    <section className="card">
-      <div className="card-title">
-        <h2>{title}</h2>
-        <span className="badge">{servers.length}</span>
-      </div>
-      {servers.length === 0 ? (
-        <div className="empty">{emptyLabel}</div>
-      ) : (
-        <div className="list">
-          {servers.map((server) => (
-            <ServerCard
-              key={server.endpoint}
-              onToggleFavorite={onToggleFavorite}
-              pendingEndpoint={pendingEndpoint}
-              server={server}
-            />
-          ))}
-        </div>
-      )}
-    </section>
-  )
-}
-
 export function BrowserRoute() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
@@ -174,29 +148,92 @@ export function BrowserRoute() {
     favoriteMutation.mutate({ server, favorite: !server.isFavorite })
   }
 
+  function handleRefresh() {
+    void serversQuery.refetch()
+    void serverLibraryQuery.refetch()
+  }
+
+  const mostRecentServer = serverLibraryQuery.data?.recents[0]
+
   return (
     <div className="grid">
+      {mostRecentServer ? (
+        <section className="card hero-card" style={{ marginBottom: '4px' }}>
+          <div className="card-title">
+            <h2>
+              <History size={20} className="stat-icon" /> Quick Join
+            </h2>
+            <span className="badge">Last played {formatLastJoined(mostRecentServer.lastJoinedAt)}</span>
+          </div>
+          <div className="server-row" style={{ background: 'transparent', border: 'none', padding: 0 }}>
+            <div className="server-card-top" style={{ alignItems: 'center' }}>
+              <Link className="server-card-link" to={`/servers/${encodeURIComponent(mostRecentServer.endpoint)}`}>
+                <div className="server-header">
+                  <div>
+                    <h3 className="server-name" style={{ fontSize: '1.2rem' }}>
+                      {mostRecentServer.displayName}
+                    </h3>
+                    <div className="muted">{mostRecentServer.endpoint}</div>
+                  </div>
+                </div>
+                <div className="pill-row">
+                  <div className="stat">
+                    <Users size={14} className="stat-icon" />
+                    <div className="stat-value">
+                      {mostRecentServer.players}/{mostRecentServer.maxPlayers}
+                    </div>
+                  </div>
+                  <div className="stat">
+                    <Wifi size={14} className={`stat-icon ${getPingClass(mostRecentServer.ping)}`} />
+                    <div className="stat-value">
+                      {mostRecentServer.ping === null ? 'N/A' : `${mostRecentServer.ping} ms`}
+                    </div>
+                  </div>
+                  <div className="stat">
+                    <MapIcon size={14} className="stat-icon" />
+                    <div className="stat-value">{mostRecentServer.map}</div>
+                  </div>
+                </div>
+              </Link>
+              <Link
+                className="button button-primary"
+                style={{ height: '48px', paddingInline: '24px' }}
+                to={`/servers/${encodeURIComponent(mostRecentServer.endpoint)}`}
+              >
+                <Play size={18} fill="currentColor" /> Play Now
+              </Link>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <section className="card">
         <div className="card-title">
           <h2><Filter size={20} className="stat-icon" /> Filters</h2>
-          <span className="badge">{paginationLabel}</span>
+          <div className="button-row">
+             <button 
+              className="button button-icon" 
+              onClick={handleRefresh} 
+              disabled={serversQuery.isFetching}
+              aria-label="Refresh server list"
+              title="Refresh"
+            >
+              <RefreshCw size={16} className={serversQuery.isFetching ? 'spin' : ''} />
+            </button>
+            <span className="badge">{paginationLabel}</span>
+          </div>
         </div>
         <div className="form-grid">
-          <div className="field">
-            <label htmlFor="search">Search</label>
-            <div style={{ position: 'relative' }}>
-              <input
-                id="search"
-                style={{ paddingLeft: '38px' }}
-                value={filters.search}
-                onChange={(event) => {
-                  updateFilters({ ...filters, page: 1, search: event.target.value })
-                }}
-                placeholder="Server name or IP..."
-              />
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
-            </div>
-          </div>
+          <Input
+            id="search"
+            icon={Search}
+            label="Search"
+            value={filters.search}
+            onChange={(event) => {
+              updateFilters({ ...filters, page: 1, search: event.target.value })
+            }}
+            placeholder="Server name or IP..."
+          />
           <div className="field">
             <label htmlFor="playerFloor">Min. Players</label>
             <input
@@ -254,23 +291,6 @@ export function BrowserRoute() {
         </div>
       </section>
 
-      <div className="server-library-grid">
-        <ServerShelf
-          emptyLabel="Favorite servers will stay pinned here."
-          onToggleFavorite={toggleFavorite}
-          pendingEndpoint={pendingEndpoint}
-          servers={serverLibraryQuery.data?.favorites ?? []}
-          title="Favorite Servers"
-        />
-        <ServerShelf
-          emptyLabel="Recently launched servers will appear here."
-          onToggleFavorite={toggleFavorite}
-          pendingEndpoint={pendingEndpoint}
-          servers={serverLibraryQuery.data?.recents ?? []}
-          title="Recent Servers"
-        />
-      </div>
-
       <section className="card">
         <div className="card-title">
           <h2><LayoutGrid size={20} className="stat-icon" /> Live Results</h2>
@@ -278,11 +298,19 @@ export function BrowserRoute() {
             {serversQuery.error ? 'Provider error' : 'All Providers Active'}
           </span>
         </div>
-        {serverLibraryQuery.error ? <div className="empty">Saved server activity could not be loaded.</div> : null}
-        {serversQuery.isLoading ? <div className="empty">Loading DayZ browser results...</div> : null}
-        {serversQuery.error ? <div className="empty">Could not load the server list.</div> : null}
+        {serverLibraryQuery.error ? (
+          <EmptyState icon={ServerOff} description="Saved server activity could not be loaded." />
+        ) : null}
+        {serversQuery.isLoading ? (
+          <div className="list">
+             {[1, 2, 3, 4, 5].map((i) => <ServerCardSkeleton key={i} />)}
+          </div>
+        ) : null}
+        {serversQuery.error ? (
+          <EmptyState icon={ServerOff} description="Could not load the server list." />
+        ) : null}
         {serversQuery.data && serversQuery.data.items.length === 0 ? (
-          <div className="empty">No servers matched the current filters.</div>
+          <EmptyState icon={SearchX} title="No results" description="No servers matched the current filters." />
         ) : null}
         {serversQuery.data ? (
           <>
