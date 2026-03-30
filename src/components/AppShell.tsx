@@ -1,12 +1,14 @@
 import { getCurrentWindow } from '@tauri-apps/api/window'
+import { openUrl } from '@tauri-apps/plugin-opener'
 import { NavLink, Outlet, Link } from 'react-router-dom'
-import { Search, Package, Settings, Minus, Square, X, Star, History, Users, Wifi } from 'lucide-react'
+import { Search, Package, Settings, Minus, Square, X, Star, History, Users, Wifi, Bug } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { getServerLibrary } from '../lib/api.ts'
 import type { ServerRecord } from '../lib/contracts.ts'
 import { Skeleton } from './ui/Skeleton.tsx'
 
 const isTauriWindow = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
+const issuesUrl = 'https://github.com/szpolny/linuxz/issues'
 
 async function minimizeWindow() {
   await getCurrentWindow().minimize()
@@ -24,6 +26,14 @@ async function toggleMaximizeWindow() {
 
 async function closeWindow() {
   await getCurrentWindow().close()
+}
+
+async function openIssuesPage() {
+  if (isTauriWindow) {
+    await openUrl(issuesUrl)
+    return
+  }
+  window.open(issuesUrl, '_blank', 'noopener,noreferrer')
 }
 
 function SidebarServerRow({ server }: { server: ServerRecord }) {
@@ -59,19 +69,34 @@ export function AppShell() {
             <span className="window-title">LinuxZ</span>
           </div>
         </div>
-        {isTauriWindow ? (
-          <div className="window-controls">
-            <button aria-label="Minimize window" className="window-button" onClick={() => void minimizeWindow()} type="button">
-              <Minus size={14} />
-            </button>
-            <button aria-label="Toggle maximize window" className="window-button" onClick={() => void toggleMaximizeWindow()} type="button">
-              <Square size={12} />
-            </button>
-            <button aria-label="Close window" className="window-button window-button-close" onClick={() => void closeWindow()} type="button">
-              <X size={14} />
-            </button>
-          </div>
-        ) : null}
+        <div className="window-toolbar">
+          <a
+            className="window-link-button"
+            href={issuesUrl}
+            onClick={(event) => {
+              event.preventDefault()
+              void openIssuesPage()
+            }}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <Bug size={14} />
+            <span>Report issue</span>
+          </a>
+          {isTauriWindow ? (
+            <div className="window-controls">
+              <button aria-label="Minimize window" className="window-button" onClick={() => void minimizeWindow()} type="button">
+                <Minus size={14} />
+              </button>
+              <button aria-label="Toggle maximize window" className="window-button" onClick={() => void toggleMaximizeWindow()} type="button">
+                <Square size={12} />
+              </button>
+              <button aria-label="Close window" className="window-button window-button-close" onClick={() => void closeWindow()} type="button">
+                <X size={14} />
+              </button>
+            </div>
+          ) : null}
+        </div>
       </header>
 
       <aside className="sidebar">
