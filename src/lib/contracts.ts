@@ -26,6 +26,7 @@ export const LaunchSettingsSchema = z.object({
   launchMode: LaunchModeSchema,
   preferredSteamInstallId: z.string().nullable(),
   preferredProtonPath: z.string().nullable(),
+  customLaunchCommand: z.string().nullable(),
   enableBattlemetrics: z.boolean(),
   enableDzsaProvider: z.boolean(),
 })

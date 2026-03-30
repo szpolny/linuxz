@@ -16,6 +16,7 @@ describe('AppBootstrapSchema', () => {
         launchMode: 'directProton',
         preferredSteamInstallId: null,
         preferredProtonPath: null,
+        customLaunchCommand: null,
         enableBattlemetrics: true,
         enableDzsaProvider: true,
       },

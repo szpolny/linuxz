@@ -171,6 +171,26 @@ export function OnboardingRoute() {
                 }}
               />
             </div>
+            <div className="field field-wide">
+              <label htmlFor="onboardingCustomLaunchCommand">Custom Launch Command</label>
+              <textarea
+                id="onboardingCustomLaunchCommand"
+                rows={3}
+                placeholder="PROTON_LOG=1 MALLOC_TRIM_THRESHOLD_=0 %command% -nosplash -noPause"
+                value={form.customLaunchCommand ?? ''}
+                onChange={(event) => {
+                  setForm({
+                    ...form,
+                    customLaunchCommand: event.target.value || null,
+                  })
+                }}
+              />
+              <div className="muted">
+                Steam-style template. Use <code>%command%</code> to place the default game command. If omitted, values
+                starting with <code>-</code> are appended as game flags; anything else is treated as a command prefix or
+                wrapper.
+              </div>
+            </div>
             <div className="field">
               <label htmlFor="onboardingBattlemetrics">BattleMetrics Data</label>
               <select
