@@ -1,10 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { getJobStatus, getServerDetails, getSettings, launchServer, prepareJoin } from '../lib/api.ts'
+import { getJobStatus, getServerDetails, getSettings, launchServer, prepareJoin, saveServerFavorite } from '../lib/api.ts'
 import type { JoinPreparationRequest, LaunchSettings, ServerDetails } from '../lib/contracts.ts'
 import { JoinJobPanel } from '../components/JoinJobPanel.tsx'
-import { ArrowLeft, Play, Shield, Box, AlertTriangle, Activity, Globe, Users, Map as MapIcon } from 'lucide-react'
+import { ArrowLeft, Play, Shield, Box, AlertTriangle, Activity, Globe, Users, Map as MapIcon, Star, History } from 'lucide-react'
 
 function createJoinRequest(details: ServerDetails, settings: LaunchSettings): JoinPreparationRequest {
   return {
@@ -16,10 +16,24 @@ function createJoinRequest(details: ServerDetails, settings: LaunchSettings): Jo
   }
 }
 
+function formatLastJoined(lastJoinedAt: string | null) {
+  if (!lastJoinedAt) {
+    return 'No recent launches yet'
+  }
+
+  const date = new Date(lastJoinedAt)
+  if (Number.isNaN(date.getTime())) {
+    return 'No recent launches yet'
+  }
+
+  return date.toLocaleString()
+}
+
 export function ServerDetailsRoute() {
   const params = useParams()
   const endpoint = decodeURIComponent(params['endpoint'] ?? '')
   const [activeJobId, setActiveJobId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   const settingsQuery = useQuery({
     queryKey: ['settings'],
@@ -59,6 +73,20 @@ export function ServerDetailsRoute() {
     },
   })
 
+  const favoriteMutation = useMutation({
+    mutationFn: async () => {
+      if (!detailsQuery.data) {
+        throw new Error('Server details are not ready')
+      }
+      return saveServerFavorite(detailsQuery.data.server, !detailsQuery.data.server.isFavorite)
+    },
+    onSuccess: (server) => {
+      void queryClient.invalidateQueries({ queryKey: ['server-library'] })
+      void queryClient.invalidateQueries({ queryKey: ['servers'] })
+      void queryClient.invalidateQueries({ queryKey: ['server-details', server.endpoint] })
+    },
+  })
+
   const jobQuery = useQuery({
     queryKey: ['job-status', activeJobId],
     queryFn: () => getJobStatus(activeJobId ?? ''),
@@ -74,14 +102,37 @@ export function ServerDetailsRoute() {
 
   const details = detailsQuery.data
 
+  useEffect(() => {
+    if (jobQuery.data?.phase !== 'complete') {
+      return
+    }
+
+    void queryClient.invalidateQueries({ queryKey: ['server-library'] })
+    void queryClient.invalidateQueries({ queryKey: ['servers'] })
+    void queryClient.invalidateQueries({ queryKey: ['server-details', endpoint] })
+  }, [endpoint, jobQuery.data?.phase, queryClient])
+
   return (
     <div className="grid two-column">
       <section className="card">
         <div className="card-title">
           <h2><Activity size={20} className="stat-icon" /> Server Details</h2>
-          <Link className="button" to="/servers">
-            <ArrowLeft size={16} /> Back
-          </Link>
+          <div className="button-row">
+            {details ? (
+              <button
+                className={`button ${details.server.isFavorite ? 'favorite-toggle-active' : ''}`}
+                disabled={favoriteMutation.isPending}
+                onClick={() => favoriteMutation.mutate()}
+                type="button"
+              >
+                <Star fill={details.server.isFavorite ? 'currentColor' : 'none'} size={16} />
+                {details.server.isFavorite ? 'Favorited' : 'Favorite'}
+              </button>
+            ) : null}
+            <Link className="button" to="/servers">
+              <ArrowLeft size={16} /> Back
+            </Link>
+          </div>
         </div>
         {detailsQuery.isLoading ? <div className="empty">Loading server details...</div> : null}
         {detailsQuery.error ? <div className="empty">Could not resolve the selected server.</div> : null}
@@ -95,6 +146,10 @@ export function ServerDetailsRoute() {
               <div className="detail-item">
                 <div className="muted">Endpoint</div>
                 <div>{details.server.endpoint}</div>
+              </div>
+              <div className="detail-item">
+                <div className="muted"><History size={14} inline-block /> Last Played</div>
+                <div>{formatLastJoined(details.server.lastJoinedAt)}</div>
               </div>
               <div className="detail-item">
                 <div className="muted"><Users size={14} inline-block /> Players</div>

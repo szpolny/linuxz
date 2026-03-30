@@ -14,10 +14,14 @@ import {
   type ListServersRequest,
   PaginatedServersResponseSchema,
   RequiredModSchema,
+  ServerRecordSchema,
+  ServerLibrarySchema,
   ServerDetailsSchema,
   type PaginatedServersResponse,
   type RequiredMod,
   type ServerDetails,
+  type ServerLibrary,
+  type ServerRecord,
 } from './contracts.ts'
 
 async function typedInvoke<TInput, TOutput>(
@@ -50,6 +54,14 @@ export async function listServers(request: ListServersRequest): Promise<Paginate
 
 export async function getServerDetails(endpoint: string): Promise<ServerDetails> {
   return typedInvoke('get_server_details', { lookup: { endpoint } }, ServerDetailsSchema)
+}
+
+export async function getServerLibrary(): Promise<ServerLibrary> {
+  return typedInvoke('get_server_library', {}, ServerLibrarySchema)
+}
+
+export async function saveServerFavorite(server: ServerRecord, favorite: boolean): Promise<ServerRecord> {
+  return typedInvoke('save_server_favorite', { server, favorite }, ServerRecordSchema)
 }
 
 export async function listDetectedMods(): Promise<RequiredMod[]> {

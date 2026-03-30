@@ -58,6 +58,8 @@ export const ServerRecordSchema = z.object({
   country: z.string().nullable(),
   hasPassword: z.boolean(),
   modded: z.boolean(),
+  isFavorite: z.boolean().default(false),
+  lastJoinedAt: z.string().nullable().default(null),
 })
 
 export const ServerSortSchema = z.enum(['players', 'ping'])
@@ -94,6 +96,11 @@ export const PaginatedServersResponseSchema = z.object({
   pageSize: z.number().int().positive(),
   hasPreviousPage: z.boolean(),
   hasNextPage: z.boolean(),
+})
+
+export const ServerLibrarySchema = z.object({
+  favorites: z.array(ServerRecordSchema),
+  recents: z.array(ServerRecordSchema),
 })
 
 export const JoinPreparationRequestSchema = z.object({
@@ -138,6 +145,7 @@ export type ServerDetails = z.infer<typeof ServerDetailsSchema>
 export type ServerSort = z.infer<typeof ServerSortSchema>
 export type ListServersRequest = z.infer<typeof ListServersRequestSchema>
 export type PaginatedServersResponse = z.infer<typeof PaginatedServersResponseSchema>
+export type ServerLibrary = z.infer<typeof ServerLibrarySchema>
 export type JoinPreparationRequest = z.infer<typeof JoinPreparationRequestSchema>
 export type JoinPreparationResult = z.infer<typeof JoinPreparationResultSchema>
 export type JoinJobStatus = z.infer<typeof JoinJobStatusSchema>

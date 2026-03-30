@@ -29,6 +29,7 @@ pub async fn list_servers(
     } else {
         servers = enrich_live_browser_data(servers).await;
         settings::cache_servers(db_path, &servers)?;
+        servers = settings::merge_server_activity(db_path, servers)?;
     }
 
     let normalized_search = request.search.to_lowercase();

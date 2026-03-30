@@ -73,6 +73,8 @@ pub async fn list_servers(request: &ListServersRequest) -> Result<Vec<ServerReco
                 country: server.attributes.country,
                 has_password: server.attributes.details.password,
                 modded: server.attributes.details.modded,
+                is_favorite: false,
+                last_joined_at: None,
             }
         })
         .collect())

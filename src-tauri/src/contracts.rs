@@ -127,6 +127,10 @@ pub struct ServerRecord {
     pub country: Option<String>,
     pub has_password: bool,
     pub modded: bool,
+    #[serde(default)]
+    pub is_favorite: bool,
+    #[serde(default)]
+    pub last_joined_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -189,6 +193,13 @@ pub struct PaginatedServersResponse {
     pub page_size: u32,
     pub has_previous_page: bool,
     pub has_next_page: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerLibrary {
+    pub favorites: Vec<ServerRecord>,
+    pub recents: Vec<ServerRecord>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

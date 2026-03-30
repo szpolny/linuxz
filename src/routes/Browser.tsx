@@ -1,9 +1,21 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { listServers } from '../lib/api.ts'
+import { getServerLibrary, listServers, saveServerFavorite } from '../lib/api.ts'
 import type { ServerRecord } from '../lib/contracts.ts'
 import { parseBrowserFilters, toBrowserSearchParams } from '../state/filters.ts'
-import { Users, Wifi, Map as MapIcon, Globe, Search, Filter, ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-react'
+import {
+  Users,
+  Wifi,
+  Map as MapIcon,
+  Globe,
+  Search,
+  Filter,
+  ChevronLeft,
+  ChevronRight,
+  LayoutGrid,
+  Star,
+  History,
+} from 'lucide-react'
 
 function getPingClass(ping: number | null) {
   if (ping === null) return ''
@@ -12,54 +24,154 @@ function getPingClass(ping: number | null) {
   return 'ping-bad'
 }
 
-function ServerCard({ server }: { server: ServerRecord }) {
+function formatLastJoined(lastJoinedAt: string | null) {
+  if (!lastJoinedAt) {
+    return null
+  }
+
+  const date = new Date(lastJoinedAt)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+type ServerCardProps = {
+  server: ServerRecord
+  onToggleFavorite: (server: ServerRecord) => void
+  pendingEndpoint: string | null
+}
+
+function ServerCard({ server, onToggleFavorite, pendingEndpoint }: ServerCardProps) {
+  const lastJoinedLabel = formatLastJoined(server.lastJoinedAt)
+  const favoritePending = pendingEndpoint === server.endpoint
+
   return (
-    <Link className="server-row" to={`/servers/${encodeURIComponent(server.endpoint)}`}>
-      <div className="server-header">
-        <div>
-          <h3 className="server-name">{server.displayName}</h3>
-          <div className="muted">{server.endpoint}</div>
-        </div>
-        <span className={`badge ${server.modded ? 'badge-good' : ''}`}>
-          {server.modded ? 'Modded' : 'Vanilla-ish'}
-        </span>
-      </div>
-      <div className="pill-row">
-        <div className="stat">
-          <Users size={14} className="stat-icon" />
-          <div className="stat-value">
-            {server.players}/{server.maxPlayers}
+    <div className="server-row">
+      <div className="server-card-top">
+        <Link className="server-card-link" to={`/servers/${encodeURIComponent(server.endpoint)}`}>
+          <div className="server-header">
+            <div>
+              <h3 className="server-name">{server.displayName}</h3>
+              <div className="muted">{server.endpoint}</div>
+              {lastJoinedLabel ? <div className="server-subtle">Last played {lastJoinedLabel}</div> : null}
+            </div>
+            <div className="button-row server-badge-row">
+              {server.lastJoinedAt ? (
+                <span className="badge">
+                  <History size={13} /> Recent
+                </span>
+              ) : null}
+              <span className={`badge ${server.modded ? 'badge-good' : ''}`}>
+                {server.modded ? 'Modded' : 'Vanilla-ish'}
+              </span>
+            </div>
           </div>
-        </div>
-        <div className="stat">
-          <Wifi size={14} className={`stat-icon ${getPingClass(server.ping)}`} />
-          <div className="stat-value">{server.ping === null ? 'N/A' : `${server.ping} ms`}</div>
-        </div>
-        <div className="stat">
-          <MapIcon size={14} className="stat-icon" />
-          <div className="stat-value">{server.map}</div>
-        </div>
-        <div className="stat">
-          <Globe size={14} className="stat-icon" />
-          <div className="stat-value">{server.country ?? 'Unknown'}</div>
-        </div>
+          <div className="pill-row">
+            <div className="stat">
+              <Users size={14} className="stat-icon" />
+              <div className="stat-value">
+                {server.players}/{server.maxPlayers}
+              </div>
+            </div>
+            <div className="stat">
+              <Wifi size={14} className={`stat-icon ${getPingClass(server.ping)}`} />
+              <div className="stat-value">{server.ping === null ? 'N/A' : `${server.ping} ms`}</div>
+            </div>
+            <div className="stat">
+              <MapIcon size={14} className="stat-icon" />
+              <div className="stat-value">{server.map}</div>
+            </div>
+            <div className="stat">
+              <Globe size={14} className="stat-icon" />
+              <div className="stat-value">{server.country ?? 'Unknown'}</div>
+            </div>
+          </div>
+        </Link>
+        <button
+          aria-label={server.isFavorite ? 'Remove favorite server' : 'Add favorite server'}
+          className={`button button-icon favorite-button ${server.isFavorite ? 'favorite-button-active' : ''}`}
+          disabled={favoritePending}
+          onClick={() => onToggleFavorite(server)}
+          type="button"
+        >
+          <Star fill={server.isFavorite ? 'currentColor' : 'none'} size={16} />
+        </button>
       </div>
-    </Link>
+    </div>
+  )
+}
+
+type ServerShelfProps = {
+  title: string
+  emptyLabel: string
+  servers: ServerRecord[]
+  pendingEndpoint: string | null
+  onToggleFavorite: (server: ServerRecord) => void
+}
+
+function ServerShelf({ title, emptyLabel, servers, pendingEndpoint, onToggleFavorite }: ServerShelfProps) {
+  return (
+    <section className="card">
+      <div className="card-title">
+        <h2>{title}</h2>
+        <span className="badge">{servers.length}</span>
+      </div>
+      {servers.length === 0 ? (
+        <div className="empty">{emptyLabel}</div>
+      ) : (
+        <div className="list">
+          {servers.map((server) => (
+            <ServerCard
+              key={server.endpoint}
+              onToggleFavorite={onToggleFavorite}
+              pendingEndpoint={pendingEndpoint}
+              server={server}
+            />
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
 export function BrowserRoute() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const queryClient = useQueryClient()
   const filters = parseBrowserFilters(searchParams)
 
   const serversQuery = useQuery({
     queryKey: ['servers', filters],
     queryFn: () => listServers(filters),
   })
+
+  const serverLibraryQuery = useQuery({
+    queryKey: ['server-library'],
+    queryFn: getServerLibrary,
+  })
+
+  const favoriteMutation = useMutation({
+    mutationFn: ({ server, favorite }: { server: ServerRecord; favorite: boolean }) => saveServerFavorite(server, favorite),
+    onSuccess: (server) => {
+      void queryClient.invalidateQueries({ queryKey: ['server-library'] })
+      void queryClient.invalidateQueries({ queryKey: ['servers'] })
+      void queryClient.invalidateQueries({ queryKey: ['server-details', server.endpoint] })
+    },
+  })
+
   const paginationLabel = serversQuery.data ? `Page ${serversQuery.data.page}` : `Page ${filters.page}`
+  const pendingEndpoint = favoriteMutation.isPending ? favoriteMutation.variables?.server.endpoint ?? null : null
 
   function updateFilters(next: typeof filters) {
     setSearchParams(toBrowserSearchParams(next))
+  }
+
+  function toggleFavorite(server: ServerRecord) {
+    favoriteMutation.mutate({ server, favorite: !server.isFavorite })
   }
 
   return (
@@ -142,6 +254,23 @@ export function BrowserRoute() {
         </div>
       </section>
 
+      <div className="server-library-grid">
+        <ServerShelf
+          emptyLabel="Favorite servers will stay pinned here."
+          onToggleFavorite={toggleFavorite}
+          pendingEndpoint={pendingEndpoint}
+          servers={serverLibraryQuery.data?.favorites ?? []}
+          title="Favorite Servers"
+        />
+        <ServerShelf
+          emptyLabel="Recently launched servers will appear here."
+          onToggleFavorite={toggleFavorite}
+          pendingEndpoint={pendingEndpoint}
+          servers={serverLibraryQuery.data?.recents ?? []}
+          title="Recent Servers"
+        />
+      </div>
+
       <section className="card">
         <div className="card-title">
           <h2><LayoutGrid size={20} className="stat-icon" /> Live Results</h2>
@@ -149,6 +278,7 @@ export function BrowserRoute() {
             {serversQuery.error ? 'Provider error' : 'All Providers Active'}
           </span>
         </div>
+        {serverLibraryQuery.error ? <div className="empty">Saved server activity could not be loaded.</div> : null}
         {serversQuery.isLoading ? <div className="empty">Loading DayZ browser results...</div> : null}
         {serversQuery.error ? <div className="empty">Could not load the server list.</div> : null}
         {serversQuery.data && serversQuery.data.items.length === 0 ? (
@@ -158,7 +288,12 @@ export function BrowserRoute() {
           <>
             <div className="list">
               {serversQuery.data.items.map((server) => (
-                <ServerCard key={server.endpoint} server={server} />
+                <ServerCard
+                  key={server.endpoint}
+                  onToggleFavorite={toggleFavorite}
+                  pendingEndpoint={pendingEndpoint}
+                  server={server}
+                />
               ))}
             </div>
             <div className="pagination-row">

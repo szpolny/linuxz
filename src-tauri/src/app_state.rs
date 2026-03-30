@@ -32,6 +32,13 @@ impl AppState {
         json TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS server_activity (
+        endpoint TEXT PRIMARY KEY,
+        favorite INTEGER NOT NULL DEFAULT 0,
+        last_joined_at TEXT,
+        json TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
       ",
         )?;
         Ok(Self {

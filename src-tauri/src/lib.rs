@@ -13,7 +13,7 @@ use crate::app_state::AppState;
 use crate::contracts::{
     AppBootstrap, JobLookup, JoinJobStatus, JoinPreparationRequest, JoinPreparationResult,
     LaunchSettings, ListServersRequest, PaginatedServersResponse, RequiredMod, ServerDetails,
-    ServerLookup, ServerRecord,
+    ServerLibrary, ServerLookup, ServerRecord,
 };
 use crate::error::AppError;
 use crate::jobs::{get_job, upsert_job};
@@ -22,6 +22,11 @@ use crate::steam::discovery::bootstrap;
 use crate::workshop::steamworks::SteamworksAdapter;
 use tauri::Manager;
 use uuid::Uuid;
+
+struct PreparedJoinPlan {
+    result: JoinPreparationResult,
+    server: ServerRecord,
+}
 
 #[tauri::command]
 async fn bootstrap_scan(state: tauri::State<'_, AppState>) -> Result<AppBootstrap, String> {
@@ -73,6 +78,21 @@ async fn get_server_details(
 }
 
 #[tauri::command]
+async fn get_server_library(state: tauri::State<'_, AppState>) -> Result<ServerLibrary, String> {
+    settings::load_server_library(&state.db_path, 6).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn save_server_favorite(
+    state: tauri::State<'_, AppState>,
+    server: ServerRecord,
+    favorite: bool,
+) -> Result<ServerRecord, String> {
+    settings::save_server_favorite(&state.db_path, &server, favorite)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn list_detected_mods(state: tauri::State<'_, AppState>) -> Result<Vec<RequiredMod>, String> {
     let bootstrap = bootstrap(&state.db_path).map_err(|error| error.to_string())?;
     let dayz = bootstrap
@@ -88,6 +108,7 @@ async fn prepare_join(
 ) -> Result<JoinPreparationResult, String> {
     prepare_join_impl(state.inner().clone(), request)
         .await
+        .map(|plan| plan.result)
         .map_err(|error| error.to_string())
 }
 
@@ -126,10 +147,7 @@ async fn get_job_status(
 }
 
 async fn resolve_server_record(state: &AppState, endpoint: &str) -> Result<ServerRecord, AppError> {
-    if let Some(record) = settings::load_cached_servers(&state.db_path)?
-        .into_iter()
-        .find(|record| record.endpoint == endpoint)
-    {
+    if let Some(record) = settings::load_server_snapshot(&state.db_path, endpoint)? {
         return Ok(record);
     }
 
@@ -156,13 +174,15 @@ async fn resolve_server_record(state: &AppState, endpoint: &str) -> Result<Serve
         country: None,
         has_password: false,
         modded: false,
+        is_favorite: false,
+        last_joined_at: None,
     })
 }
 
 async fn prepare_join_impl(
     state: AppState,
     request: JoinPreparationRequest,
-) -> Result<JoinPreparationResult, AppError> {
+) -> Result<PreparedJoinPlan, AppError> {
     let bootstrap_state = bootstrap(&state.db_path)?;
     let dayz = bootstrap_state
         .dayz_install
@@ -183,8 +203,11 @@ async fn prepare_join_impl(
         country: None,
         has_password: false,
         modded: false,
+        is_favorite: false,
+        last_joined_at: None,
     };
     let details = hydrate_server_details(record, request.settings.enable_dzsa_provider).await?;
+    let resolved_server = details.server.clone();
     let resolved_mods = workshop::reconcile_mods(&dayz, &details.required_mods)?;
     let blocking_issues = if resolved_mods
         .iter()
@@ -214,19 +237,22 @@ async fn prepare_join_impl(
             ));
         }
     }
-    Ok(JoinPreparationResult {
-        job_id: Uuid::new_v4().to_string(),
-        launch_mode,
-        launch_args,
-        blocking_issues,
-        warnings,
-        resolved_mods,
-        ready_to_launch: details.required_mods.is_empty()
-            || details.required_mods.iter().all(|item| {
-                item.workshop_id
-                    .chars()
-                    .all(|character| character.is_ascii_digit())
-            }),
+    Ok(PreparedJoinPlan {
+        result: JoinPreparationResult {
+            job_id: Uuid::new_v4().to_string(),
+            launch_mode,
+            launch_args,
+            blocking_issues,
+            warnings,
+            resolved_mods,
+            ready_to_launch: details.required_mods.is_empty()
+                || details.required_mods.iter().all(|item| {
+                    item.workshop_id
+                        .chars()
+                        .all(|character| character.is_ascii_digit())
+                }),
+        },
+        server: resolved_server,
     })
 }
 
@@ -240,7 +266,7 @@ async fn run_launch_job(
         .dayz_install
         .ok_or_else(|| AppError::new("DayZ install could not be detected"))?;
     let preparation = prepare_join_impl(state.clone(), request.clone()).await?;
-    let resolved_mods = preparation.resolved_mods.clone();
+    let resolved_mods = preparation.result.resolved_mods.clone();
     let missing_mods = resolved_mods
         .iter()
         .filter(|item| item.installed_state == "missing")
@@ -261,7 +287,7 @@ async fn run_launch_job(
         subscribed_mods: Vec::new(),
         installed_mods: installed_mods.clone(),
         ready_to_launch: missing_mods.is_empty(),
-        warnings: preparation.warnings.clone(),
+        warnings: preparation.result.warnings.clone(),
         launch_result: None,
     };
     upsert_job(&state, status.clone())?;
@@ -378,7 +404,8 @@ async fn run_launch_job(
     status.message = String::from("Launching DayZ");
     upsert_job(&state, status.clone())?;
 
-    let result = launch::launch(&dayz, &request.settings, &preparation.launch_args)?;
+    let result = launch::launch(&dayz, &request.settings, &preparation.result.launch_args)?;
+    let _ = settings::record_recent_server(&state.db_path, &preparation.server);
     status.phase = String::from("complete");
     status.progress = 1.0;
     status.ready_to_launch = true;
@@ -409,6 +436,8 @@ pub fn run() {
             save_settings,
             list_servers,
             get_server_details,
+            get_server_library,
+            save_server_favorite,
             prepare_join,
             launch_server,
             list_detected_mods,

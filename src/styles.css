@@ -290,9 +290,6 @@ button {
 .badge-bad { background: rgba(115, 212, 164, 0.1); color: var(--bad); border-color: rgba(255, 122, 122, 0.2); }
 
 .server-row {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
   padding: 16px 20px;
   background: var(--panel-soft);
   border: 1px solid transparent;
@@ -308,6 +305,20 @@ button {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
+.server-card-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.server-card-link {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
 .server-header {
   display: flex;
   justify-content: space-between;
@@ -319,6 +330,23 @@ button {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
+}
+
+.server-subtle {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 6px;
+}
+
+.server-badge-row {
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.server-library-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
 }
 
 .muted {
@@ -469,6 +497,18 @@ button {
 
 .button-icon {
   padding: 10px;
+}
+
+.favorite-button {
+  flex-shrink: 0;
+  min-width: 40px;
+}
+
+.favorite-button-active,
+.favorite-toggle-active {
+  color: var(--warn);
+  border-color: rgba(255, 210, 106, 0.25);
+  background: rgba(255, 210, 106, 0.08);
 }
 
 .hero-card::before {
@@ -722,6 +762,10 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .server-library-grid {
+    grid-template-columns: 1fr;
+  }
+
   html,
   body,
   #root {
@@ -752,5 +796,14 @@ button {
   .pagination-row {
     gap: 12px;
     flex-direction: column;
+  }
+
+  .server-card-top,
+  .server-header {
+    flex-direction: column;
+  }
+
+  .server-badge-row {
+    justify-content: flex-start;
   }
 }
