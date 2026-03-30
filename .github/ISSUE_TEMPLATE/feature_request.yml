@@ -1,0 +1,68 @@
+name: Feature request
+description: Suggest an improvement for LinuxZ
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to propose a feature, workflow improvement, or UX change for LinuxZ.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Explain the limitation, friction, or missing capability.
+      placeholder: It is hard to manage several mod presets for different servers.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the feature you want and how it should work.
+      placeholder: Add named launcher profiles with saved server, mods, and launch options.
+    validations:
+      required: true
+  - type: textarea
+    id: user_impact
+    attributes:
+      label: Why would this be useful?
+      description: Describe the expected benefit for players or maintainers.
+      placeholder: This would reduce setup time when switching between modded communities.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Related area
+      options:
+        - Server browser
+        - Workshop / mods
+        - Settings
+        - Game launch flow
+        - UI / navigation
+        - Performance
+        - Installation / updates
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any workaround or different approach you considered.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched for existing requests for the same idea.
+          required: true
+        - label: This request is scoped to LinuxZ rather than the DayZ game itself.
+          required: true
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Mockups, examples, and references are welcome.

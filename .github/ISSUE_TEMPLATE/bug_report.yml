@@ -1,0 +1,97 @@
+name: Bug report
+description: Report a reproducible problem in LinuxZ
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug.
+
+        Please include enough detail to reproduce the issue on your Linux setup.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you were trying to do.
+      placeholder: The launcher crashes when I refresh the server list after subscribing to a mod.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the exact steps that trigger the problem.
+      placeholder: |
+        1. Open LinuxZ
+        2. Navigate to ...
+        3. Click ...
+        4. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: I expected the launcher to refresh the list without crashing.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Launcher startup
+        - Server browser
+        - Workshop / mods
+        - Game launch flow
+        - UI / navigation
+        - Installation / updates
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: app_version
+    attributes:
+      label: LinuxZ version
+      description: Add the app version, commit, or build identifier if known.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: linux_environment
+    attributes:
+      label: Linux environment
+      description: Include distro and desktop/session details if relevant.
+      placeholder: Fedora 42, KDE Plasma, Wayland
+    validations:
+      required: true
+  - type: input
+    id: node_version
+    attributes:
+      label: Node version (if relevant)
+      description: Useful for local dev or build issues.
+      placeholder: 22.x
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Regression?
+      description: Did this work in an earlier build?
+      options:
+        - "No"
+        - "Yes"
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, screenshots, or error messages
+      description: Paste any useful output from the app, terminal, or console.
+      render: shell
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional context
+      description: Add anything else that may help diagnose the bug.
