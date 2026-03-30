@@ -6,6 +6,7 @@ describe('browser filters', () => {
     const params = toBrowserSearchParams({
       search: 'chernarus',
       moddedOnly: true,
+      officialOnly: false,
       playerFloor: 30,
       limit: 40,
       page: 3,
@@ -15,6 +16,7 @@ describe('browser filters', () => {
     expect(parseBrowserFilters(params)).toEqual({
       search: 'chernarus',
       moddedOnly: true,
+      officialOnly: false,
       playerFloor: 30,
       limit: 40,
       page: 3,

@@ -58,6 +58,7 @@ export const ServerRecordSchema = z.object({
   country: z.string().nullable(),
   hasPassword: z.boolean(),
   modded: z.boolean(),
+  official: z.boolean().default(false),
   isFavorite: z.boolean().default(false),
   lastJoinedAt: z.string().nullable().default(null),
 })
@@ -84,6 +85,7 @@ export const ServerDetailsSchema = z.object({
 export const ListServersRequestSchema = z.object({
   search: z.string(),
   moddedOnly: z.boolean(),
+  officialOnly: z.boolean(),
   playerFloor: z.number().int().nonnegative(),
   limit: z.number().int().positive(),
   page: z.number().int().positive(),
@@ -153,6 +155,7 @@ export type JoinJobStatus = z.infer<typeof JoinJobStatusSchema>
 export const defaultListServersRequest: ListServersRequest = {
   search: '',
   moddedOnly: false,
+  officialOnly: false,
   playerFloor: 0,
   limit: 25,
   page: 1,

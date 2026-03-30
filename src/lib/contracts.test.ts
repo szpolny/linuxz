@@ -53,6 +53,7 @@ describe('ServerLibrarySchema', () => {
     })
 
     const favorite = parsed.favorites[0]!
+    expect(favorite.official).toBe(false)
     expect(favorite.isFavorite).toBe(false)
     expect(favorite.lastJoinedAt).toBeNull()
   })

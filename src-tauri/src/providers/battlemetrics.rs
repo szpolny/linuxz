@@ -6,6 +6,13 @@ use serde::Deserialize;
 #[serde(rename_all = "camelCase")]
 struct BattleMetricsResponse {
     data: Vec<BattleMetricsServer>,
+    links: Option<BattleMetricsLinks>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BattleMetricsLinks {
+    next: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -33,49 +40,88 @@ struct BattleMetricsDetails {
     version: Option<String>,
     password: bool,
     modded: bool,
+    official: bool,
 }
 
 pub async fn list_servers(request: &ListServersRequest) -> Result<Vec<ServerRecord>, AppError> {
-    let limit = request
+    if !request.official_only {
+        let limit = request
+            .limit
+            .saturating_mul(request.page.saturating_add(1))
+            .clamp(20, 100);
+        let url = format!(
+            "https://api.battlemetrics.com/servers?filter%5Bgame%5D=dayz&page%5Bsize%5D={limit}&sort=-players"
+        );
+        let response = reqwest::Client::new()
+            .get(url)
+            .send()
+            .await?
+            .error_for_status()?;
+        let payload = response.json::<BattleMetricsResponse>().await?;
+        return Ok(payload.data.into_iter().map(map_server_record).collect());
+    }
+
+    let desired_matches = request
         .limit
         .saturating_mul(request.page.saturating_add(1))
-        .clamp(20, 250);
-    let url = format!(
-    "https://api.battlemetrics.com/servers?filter%5Bgame%5D=dayz&page%5Bsize%5D={limit}&sort=-players"
-  );
-    let response = reqwest::Client::new()
-        .get(url)
-        .send()
-        .await?
-        .error_for_status()?;
-    let payload = response.json::<BattleMetricsResponse>().await?;
-    Ok(payload
-        .data
-        .into_iter()
-        .map(|server| {
-            let query_port = server
-                .attributes
-                .port_query
-                .unwrap_or(server.attributes.port.saturating_add(3));
-            ServerRecord {
-                endpoint: format!("{}:{query_port}", server.attributes.ip),
-                ip: server.attributes.ip,
-                query_port,
-                connect_port: Some(server.attributes.port),
-                display_name: server.attributes.name,
-                map: String::from("unknown"),
-                players: server.attributes.players,
-                max_players: server.attributes.max_players,
-                ping: None,
-                source_coverage: vec![String::from("battlemetrics")],
-                readiness: String::from("cached"),
-                version: server.attributes.details.version,
-                country: server.attributes.country,
-                has_password: server.attributes.details.password,
-                modded: server.attributes.details.modded,
-                is_favorite: false,
-                last_joined_at: None,
-            }
-        })
-        .collect())
+        .max(20) as usize;
+    let client = reqwest::Client::new();
+    let mut next_url = Some(String::from(
+        "https://api.battlemetrics.com/servers?filter%5Bgame%5D=dayz&page%5Bsize%5D=100&sort=-players",
+    ));
+    let mut servers = Vec::new();
+    let mut pages_fetched = 0;
+
+    while let Some(url) = next_url {
+        let response = client.get(&url).send().await?.error_for_status()?;
+        let payload = response.json::<BattleMetricsResponse>().await?;
+        servers.extend(
+            payload
+                .data
+                .into_iter()
+                .map(map_server_record)
+                .filter(|server| server.official),
+        );
+
+        if servers.len() >= desired_matches {
+            break;
+        }
+
+        pages_fetched += 1;
+        if pages_fetched >= 5 {
+            break;
+        }
+
+        next_url = payload.links.and_then(|links| links.next);
+    }
+
+    Ok(servers)
+}
+
+fn map_server_record(server: BattleMetricsServer) -> ServerRecord {
+    let query_port = server
+        .attributes
+        .port_query
+        .unwrap_or(server.attributes.port.saturating_add(3));
+
+    ServerRecord {
+        endpoint: format!("{}:{query_port}", server.attributes.ip),
+        ip: server.attributes.ip,
+        query_port,
+        connect_port: Some(server.attributes.port),
+        display_name: server.attributes.name,
+        map: String::from("unknown"),
+        players: server.attributes.players,
+        max_players: server.attributes.max_players,
+        ping: None,
+        source_coverage: vec![String::from("battlemetrics")],
+        readiness: String::from("cached"),
+        version: server.attributes.details.version,
+        country: server.attributes.country,
+        has_password: server.attributes.details.password,
+        modded: server.attributes.details.modded,
+        official: server.attributes.details.official,
+        is_favorite: false,
+        last_joined_at: None,
+    }
 }

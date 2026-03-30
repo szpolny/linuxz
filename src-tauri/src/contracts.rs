@@ -128,6 +128,8 @@ pub struct ServerRecord {
     pub has_password: bool,
     pub modded: bool,
     #[serde(default)]
+    pub official: bool,
+    #[serde(default)]
     pub is_favorite: bool,
     #[serde(default)]
     pub last_joined_at: Option<String>,
@@ -159,6 +161,8 @@ pub struct ServerDetails {
 pub struct ListServersRequest {
     pub search: String,
     pub modded_only: bool,
+    #[serde(default)]
+    pub official_only: bool,
     pub player_floor: u32,
     pub limit: u32,
     pub page: u32,
@@ -170,6 +174,7 @@ impl Default for ListServersRequest {
         Self {
             search: String::new(),
             modded_only: false,
+            official_only: false,
             player_floor: 0,
             limit: 25,
             page: 1,

@@ -174,6 +174,7 @@ async fn resolve_server_record(state: &AppState, endpoint: &str) -> Result<Serve
         country: None,
         has_password: false,
         modded: false,
+        official: false,
         is_favorite: false,
         last_joined_at: None,
     })
@@ -203,6 +204,7 @@ async fn prepare_join_impl(
         country: None,
         has_password: false,
         modded: false,
+        official: false,
         is_favorite: false,
         last_joined_at: None,
     };

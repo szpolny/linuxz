@@ -39,6 +39,9 @@ pub async fn list_servers(
             if request.modded_only && !server.modded {
                 return false;
             }
+            if request.official_only && !server.official {
+                return false;
+            }
             if server.players < request.player_floor {
                 return false;
             }

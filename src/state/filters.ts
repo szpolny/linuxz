@@ -11,6 +11,7 @@ export function parseBrowserFilters(params: URLSearchParams): ListServersRequest
   return {
     search: params.get('search') ?? defaultListServersRequest.search,
     moddedOnly: params.get('moddedOnly') === 'true',
+    officialOnly: params.get('officialOnly') === 'true',
     playerFloor: Number.isFinite(playerFloor) ? Math.max(0, Math.trunc(playerFloor)) : defaultListServersRequest.playerFloor,
     limit: Number.isFinite(limit) ? Math.max(10, Math.trunc(limit)) : defaultListServersRequest.limit,
     page: Number.isFinite(page) ? Math.max(1, Math.trunc(page)) : defaultListServersRequest.page,
@@ -25,6 +26,9 @@ export function toBrowserSearchParams(filters: ListServersRequest): URLSearchPar
   }
   if (filters.moddedOnly) {
     params.set('moddedOnly', 'true')
+  }
+  if (filters.officialOnly) {
+    params.set('officialOnly', 'true')
   }
   if (filters.playerFloor > 0) {
     params.set('playerFloor', String(filters.playerFloor))

@@ -73,6 +73,7 @@ function ServerCard({ server, onToggleFavorite, pendingEndpoint }: ServerCardPro
                   <History size={13} /> Recent
                 </span>
               ) : null}
+              {server.official ? <span className="badge badge-good">Official</span> : null}
               <span className={`badge ${server.modded ? 'badge-good' : ''}`}>
                 {server.modded ? 'Modded' : 'Vanilla-ish'}
               </span>
@@ -139,6 +140,7 @@ export function BrowserRoute() {
 
   const paginationLabel = serversQuery.data ? `Page ${serversQuery.data.page}` : `Page ${filters.page}`
   const pendingEndpoint = favoriteMutation.isPending ? favoriteMutation.variables?.server.endpoint ?? null : null
+  const serverTypeValue = filters.officialOnly ? 'official' : filters.moddedOnly ? 'modded' : 'all'
 
   function updateFilters(next: typeof filters) {
     setSearchParams(toBrowserSearchParams(next))
@@ -265,13 +267,20 @@ export function BrowserRoute() {
             <label htmlFor="moddedOnly">Server Type</label>
             <select
               id="moddedOnly"
-              value={filters.moddedOnly ? 'modded' : 'all'}
+              value={serverTypeValue}
               onChange={(event) => {
-                updateFilters({ ...filters, page: 1, moddedOnly: event.target.value === 'modded' })
+                const serverType = event.target.value
+                updateFilters({
+                  ...filters,
+                  page: 1,
+                  moddedOnly: serverType === 'modded',
+                  officialOnly: serverType === 'official',
+                })
               }}
             >
               <option value="all">All servers</option>
               <option value="modded">Modded only</option>
+              <option value="official">Official only</option>
             </select>
           </div>
           <div className="field">
