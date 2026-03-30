@@ -3,6 +3,14 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { listServers } from '../lib/api.ts'
 import type { ServerRecord } from '../lib/contracts.ts'
 import { parseBrowserFilters, toBrowserSearchParams } from '../state/filters.ts'
+import { Users, Wifi, Map as MapIcon, Globe, Search, Filter, ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-react'
+
+function getPingClass(ping: number | null) {
+  if (ping === null) return ''
+  if (ping < 50) return 'ping-good'
+  if (ping < 120) return 'ping-warn'
+  return 'ping-bad'
+}
 
 function ServerCard({ server }: { server: ServerRecord }) {
   return (
@@ -18,21 +26,21 @@ function ServerCard({ server }: { server: ServerRecord }) {
       </div>
       <div className="pill-row">
         <div className="stat">
-          <div className="stat-label">Players</div>
+          <Users size={14} className="stat-icon" />
           <div className="stat-value">
             {server.players}/{server.maxPlayers}
           </div>
         </div>
         <div className="stat">
-          <div className="stat-label">Ping</div>
+          <Wifi size={14} className={`stat-icon ${getPingClass(server.ping)}`} />
           <div className="stat-value">{server.ping === null ? 'N/A' : `${server.ping} ms`}</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Map</div>
+          <MapIcon size={14} className="stat-icon" />
           <div className="stat-value">{server.map}</div>
         </div>
         <div className="stat">
-          <div className="stat-label">Country</div>
+          <Globe size={14} className="stat-icon" />
           <div className="stat-value">{server.country ?? 'Unknown'}</div>
         </div>
       </div>
@@ -58,22 +66,27 @@ export function BrowserRoute() {
     <div className="grid">
       <section className="card">
         <div className="card-title">
-          <h2>Server Browser</h2>
+          <h2><Filter size={20} className="stat-icon" /> Filters</h2>
           <span className="badge">{paginationLabel}</span>
         </div>
         <div className="form-grid">
           <div className="field">
             <label htmlFor="search">Search</label>
-            <input
-              id="search"
-              value={filters.search}
-              onChange={(event) => {
-                updateFilters({ ...filters, page: 1, search: event.target.value })
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="search"
+                style={{ paddingLeft: '38px' }}
+                value={filters.search}
+                onChange={(event) => {
+                  updateFilters({ ...filters, page: 1, search: event.target.value })
+                }}
+                placeholder="Server name or IP..."
+              />
+              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+            </div>
           </div>
           <div className="field">
-            <label htmlFor="playerFloor">Player floor</label>
+            <label htmlFor="playerFloor">Min. Players</label>
             <input
               id="playerFloor"
               min={0}
@@ -86,7 +99,7 @@ export function BrowserRoute() {
             />
           </div>
           <div className="field">
-            <label htmlFor="limit">Limit</label>
+            <label htmlFor="limit">Show</label>
             <select
               id="limit"
               value={String(filters.limit)}
@@ -94,13 +107,13 @@ export function BrowserRoute() {
                 updateFilters({ ...filters, page: 1, limit: Number(event.target.value) })
               }}
             >
-              <option value="25">25</option>
-              <option value="40">40</option>
-              <option value="50">50</option>
+              <option value="25">25 per page</option>
+              <option value="40">40 per page</option>
+              <option value="50">50 per page</option>
             </select>
           </div>
           <div className="field">
-            <label htmlFor="moddedOnly">Mode</label>
+            <label htmlFor="moddedOnly">Server Type</label>
             <select
               id="moddedOnly"
               value={filters.moddedOnly ? 'modded' : 'all'}
@@ -113,7 +126,7 @@ export function BrowserRoute() {
             </select>
           </div>
           <div className="field">
-            <label htmlFor="sortBy">Sort by</label>
+            <label htmlFor="sortBy">Order By</label>
             <select
               id="sortBy"
               value={filters.sortBy}
@@ -131,12 +144,12 @@ export function BrowserRoute() {
 
       <section className="card">
         <div className="card-title">
-          <h2>Live Results</h2>
+          <h2><LayoutGrid size={20} className="stat-icon" /> Live Results</h2>
           <span className={`badge ${serversQuery.error ? 'badge-bad' : 'badge-good'}`}>
-            {serversQuery.error ? 'Provider error' : 'BattleMetrics + A2S + DZSA'}
+            {serversQuery.error ? 'Provider error' : 'All Providers Active'}
           </span>
         </div>
-        {serversQuery.isLoading ? <div className="empty">Loading DayZ browser results.</div> : null}
+        {serversQuery.isLoading ? <div className="empty">Loading DayZ browser results...</div> : null}
         {serversQuery.error ? <div className="empty">Could not load the server list.</div> : null}
         {serversQuery.data && serversQuery.data.items.length === 0 ? (
           <div className="empty">No servers matched the current filters.</div>
@@ -157,7 +170,7 @@ export function BrowserRoute() {
                 }}
                 type="button"
               >
-                Previous
+                <ChevronLeft size={16} /> Previous
               </button>
               <span className="badge">
                 Page {serversQuery.data.page} • {serversQuery.data.pageSize} per page
@@ -170,7 +183,7 @@ export function BrowserRoute() {
                 }}
                 type="button"
               >
-                Next
+                Next <ChevronRight size={16} />
               </button>
             </div>
           </>

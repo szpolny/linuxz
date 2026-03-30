@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { bootstrapScan, getSettings, saveSettings } from '../lib/api.ts'
 import type { LaunchSettings } from '../lib/contracts.ts'
+import { Settings, Save, Cpu, Monitor, Zap, Shield, Info } from 'lucide-react'
 
 export function SettingsRoute() {
   const bootstrapQuery = useQuery({
@@ -36,29 +37,32 @@ export function SettingsRoute() {
     <div className="grid two-column">
       <section className="card">
         <div className="card-title">
-          <h2>Launcher Settings</h2>
-          <span className="badge">{saveMutation.isSuccess ? 'Saved' : 'Local prototype'}</span>
+          <h2><Settings size={20} className="stat-icon" /> Launcher Settings</h2>
+          <span className={`badge ${saveMutation.isSuccess ? 'badge-good' : ''}`}>
+            {saveMutation.isSuccess ? 'Settings Saved' : 'Local Configuration'}
+          </span>
         </div>
-        {!form ? <div className="empty">Loading current launcher settings.</div> : null}
+        {!form ? <div className="empty">Loading settings...</div> : null}
         {form ? (
           <div className="stack">
             <div className="settings-grid">
               <div className="field">
-                <label htmlFor="defaultPlayerName">Default launch name</label>
+                <label htmlFor="defaultPlayerName">Default Player Name</label>
                 <input
                   id="defaultPlayerName"
                   value={form.defaultPlayerName}
                   onChange={(event) => {
                     setForm({ ...form, defaultPlayerName: event.target.value })
                   }}
+                  placeholder="Survivor"
                 />
               </div>
               <div className="field">
-                <label>Launch mode</label>
-                <input value="Direct Proton" disabled />
+                <label>Launch Mode</label>
+                <input value="Direct Proton (Linux Optimized)" disabled />
               </div>
               <div className="field">
-                <label htmlFor="preferredSteamInstallId">Preferred Steam install</label>
+                <label htmlFor="preferredSteamInstallId">Steam Installation</label>
                 <select
                   id="preferredSteamInstallId"
                   value={form.preferredSteamInstallId ?? ''}
@@ -69,7 +73,7 @@ export function SettingsRoute() {
                     })
                   }}
                 >
-                  <option value="">Auto-select</option>
+                  <option value="">Auto-select (Recommended)</option>
                   {bootstrapQuery.data?.detectedSteamInstalls.map((install) => (
                     <option key={install.id} value={install.id}>
                       {install.kind}: {install.rootPath}
@@ -78,7 +82,7 @@ export function SettingsRoute() {
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="preferredProtonPath">Preferred Proton binary</label>
+                <label htmlFor="preferredProtonPath">Proton Binary Path</label>
                 <input
                   id="preferredProtonPath"
                   placeholder="/path/to/proton"
@@ -90,10 +94,9 @@ export function SettingsRoute() {
                     })
                   }}
                 />
-                <small>Required only for direct Proton exec.</small>
               </div>
               <div className="field">
-                <label htmlFor="enableBattlemetrics">BattleMetrics provider</label>
+                <label htmlFor="enableBattlemetrics">BattleMetrics Data</label>
                 <select
                   id="enableBattlemetrics"
                   value={form.enableBattlemetrics ? 'enabled' : 'disabled'}
@@ -109,7 +112,7 @@ export function SettingsRoute() {
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="enableDzsaProvider">DZSA provider</label>
+                <label htmlFor="enableDzsaProvider">DZSA Provider</label>
                 <select
                   id="enableDzsaProvider"
                   value={form.enableDzsaProvider ? 'enabled' : 'disabled'}
@@ -125,9 +128,9 @@ export function SettingsRoute() {
                 </select>
               </div>
             </div>
-            <div className="button-row">
+            <div className="button-row" style={{ marginTop: '12px' }}>
               <button className="button button-primary" onClick={() => saveMutation.mutate()} type="button">
-                Save Settings
+                <Save size={16} /> Save Changes
               </button>
             </div>
           </div>
@@ -136,53 +139,52 @@ export function SettingsRoute() {
 
       <section className="card hero-card">
         <div className="card-title">
-          <h2>Environment Scan</h2>
+          <h2><Monitor size={20} className="stat-icon" /> Environment</h2>
           {bootstrapQuery.data ? (
             <span className={`badge ${bootstrapQuery.data.dayzInstall ? 'badge-good' : 'badge-warn'}`}>
-              {bootstrapQuery.data.dayzInstall ? 'DayZ detected' : 'DayZ missing'}
+              {bootstrapQuery.data.dayzInstall ? 'DayZ Detected' : 'DayZ Missing'}
             </span>
           ) : null}
         </div>
-        {bootstrapQuery.isLoading ? <div className="empty">Scanning local Steam layouts and DayZ install paths.</div> : null}
+        {bootstrapQuery.isLoading ? <div className="empty">Scanning Steam environment...</div> : null}
         {bootstrapQuery.error ? <div className="empty">Bootstrap scan failed.</div> : null}
         {bootstrapQuery.data ? (
           <div className="stack">
             <div className="details-grid">
               <div className="detail-item">
-                <div className="muted">Detected Steam installs</div>
-                <div>{bootstrapQuery.data.detectedSteamInstalls.length}</div>
+                <div className="muted"><Zap size={14} inline-block /> Steam Installs</div>
+                <div style={{ fontWeight: 600 }}>{bootstrapQuery.data.detectedSteamInstalls.length} found</div>
               </div>
               <div className="detail-item">
-                <div className="muted">Compatdata ready</div>
-                <div>{bootstrapQuery.data.compatdataReady ? 'Yes' : 'No'}</div>
+                <div className="muted"><Shield size={14} inline-block /> Compatdata</div>
+                <div style={{ fontWeight: 600 }}>{bootstrapQuery.data.compatdataReady ? 'Initialized' : 'Missing'}</div>
               </div>
               <div className="detail-item">
-                <div className="muted">Workshop manifest ready</div>
-                <div>{bootstrapQuery.data.workshopManifestReady ? 'Yes' : 'No'}</div>
+                <div className="muted"><Cpu size={14} inline-block /> Manifests</div>
+                <div style={{ fontWeight: 600 }}>{bootstrapQuery.data.workshopManifestReady ? 'Available' : 'Missing'}</div>
               </div>
             </div>
             {bootstrapQuery.data.warnings.length > 0 ? (
               <div className="stack">
+                <div className="card-title" style={{ marginBottom: '4px' }}>
+                  <h3><Info size={18} style={{ color: 'var(--warn)' }} /> System Warnings</h3>
+                </div>
                 {bootstrapQuery.data.warnings.map((warning) => (
-                  <div className="badge badge-warn" key={warning}>
+                  <div className="badge badge-warn" key={warning} style={{ width: '100%', justifyContent: 'flex-start' }}>
                     {warning}
                   </div>
                 ))}
               </div>
             ) : null}
             {bootstrapQuery.data.dayzInstall ? (
-              <div className="detail-list">
-                <div className="detail-item">
-                  <div className="muted">Game path</div>
-                  <div>{bootstrapQuery.data.dayzInstall.gamePath}</div>
+              <div className="stack" style={{ marginTop: '12px' }}>
+                 <div className="detail-item">
+                  <div className="muted">Game Directory</div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{bootstrapQuery.data.dayzInstall.gamePath}</div>
                 </div>
                 <div className="detail-item">
-                  <div className="muted">Workshop manifest</div>
-                  <div>{bootstrapQuery.data.dayzInstall.workshopManifestPath}</div>
-                </div>
-                <div className="detail-item">
-                  <div className="muted">Documents path</div>
-                  <div>{bootstrapQuery.data.dayzInstall.documentsPath}</div>
+                  <div className="muted">Workshop Manifest</div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{bootstrapQuery.data.dayzInstall.workshopManifestPath}</div>
                 </div>
               </div>
             ) : null}
