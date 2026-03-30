@@ -33,6 +33,8 @@ pub struct DayzInstall {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct LaunchSettings {
+  #[serde(default)]
+  pub onboarding_completed: bool,
   pub default_player_name: String,
   pub launch_mode: LaunchMode,
   pub preferred_steam_install_id: Option<String>,
@@ -49,6 +51,7 @@ pub struct LaunchSettings {
 impl Default for LaunchSettings {
   fn default() -> Self {
     Self {
+      onboarding_completed: false,
       default_player_name: String::from("survivor"),
       launch_mode: LaunchMode::DirectProton,
       preferred_steam_install_id: None,

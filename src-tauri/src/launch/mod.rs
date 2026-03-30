@@ -231,6 +231,7 @@ mod tests {
       launcher_preset_path: "/presets".to_string(),
     };
     let settings = LaunchSettings {
+      onboarding_completed: false,
       default_player_name: "Szymon".to_string(),
       launch_mode: LaunchMode::SteamHandoff,
       preferred_steam_install_id: None,

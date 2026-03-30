@@ -11,6 +11,7 @@ describe('AppBootstrapSchema', () => {
       workshopManifestReady: false,
       availableLaunchModes: ['directProton'],
       settings: {
+        onboardingCompleted: false,
         defaultPlayerName: 'survivor',
         launchMode: 'directProton',
         preferredSteamInstallId: null,

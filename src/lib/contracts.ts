@@ -21,6 +21,7 @@ export const DayzInstallSchema = z.object({
 })
 
 export const LaunchSettingsSchema = z.object({
+  onboardingCompleted: z.boolean(),
   defaultPlayerName: z.string(),
   launchMode: LaunchModeSchema,
   preferredSteamInstallId: z.string().nullable(),

@@ -14,7 +14,8 @@ pub fn load_settings(db_path: &Path) -> Result<LaunchSettings, AppError> {
   match row {
     Ok(json) => {
       let mut settings = serde_json::from_str::<LaunchSettings>(&json)?;
-      let needs_normalization = json.contains("\"enableDzsaExperimental\"")
+      let needs_normalization = !json.contains("\"onboardingCompleted\"")
+        || json.contains("\"enableDzsaExperimental\"")
         || matches!(settings.launch_mode, LaunchMode::SteamHandoff);
 
       if matches!(settings.launch_mode, LaunchMode::SteamHandoff) {

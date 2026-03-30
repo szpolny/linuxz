@@ -2,24 +2,17 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getJobStatus, getServerDetails, getSettings, launchServer, prepareJoin } from '../lib/api.ts'
-import type { JoinPreparationRequest, ServerDetails } from '../lib/contracts.ts'
+import type { JoinPreparationRequest, LaunchSettings, ServerDetails } from '../lib/contracts.ts'
 import { JoinJobPanel } from '../components/JoinJobPanel.tsx'
 import { ArrowLeft, Play, Shield, Box, AlertTriangle, Activity, Globe, Users, Map as MapIcon } from 'lucide-react'
 
-function createJoinRequest(details: ServerDetails, defaultPlayerName: string, preferredSteamInstallId: string | null, preferredProtonPath: string | null, enableBattlemetrics: boolean, enableDzsaProvider: boolean): JoinPreparationRequest {
+function createJoinRequest(details: ServerDetails, settings: LaunchSettings): JoinPreparationRequest {
   return {
     endpoint: details.server.endpoint,
     ip: details.server.ip,
     queryPort: details.server.queryPort,
     connectPort: details.server.connectPort,
-    settings: {
-      defaultPlayerName,
-      launchMode: 'directProton',
-      preferredSteamInstallId,
-      preferredProtonPath,
-      enableBattlemetrics,
-      enableDzsaProvider,
-    },
+    settings,
   }
 }
 
@@ -42,14 +35,7 @@ export function ServerDetailsRoute() {
 
   const joinRequest =
     detailsQuery.data && settingsQuery.data
-      ? createJoinRequest(
-          detailsQuery.data,
-          settingsQuery.data.defaultPlayerName,
-          settingsQuery.data.preferredSteamInstallId,
-          settingsQuery.data.preferredProtonPath,
-          settingsQuery.data.enableBattlemetrics,
-          settingsQuery.data.enableDzsaProvider,
-        )
+      ? createJoinRequest(detailsQuery.data, settingsQuery.data)
       : null
 
   const prepareMutation = useMutation({

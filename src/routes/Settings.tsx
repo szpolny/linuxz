@@ -1,10 +1,13 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { bootstrapScan, getSettings, saveSettings } from '../lib/api.ts'
 import type { LaunchSettings } from '../lib/contracts.ts'
 import { Settings, Save, Cpu, Monitor, Zap, Shield, Info } from 'lucide-react'
 
 export function SettingsRoute() {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const bootstrapQuery = useQuery({
     queryKey: ['bootstrap'],
     queryFn: bootstrapScan,
@@ -30,6 +33,25 @@ export function SettingsRoute() {
     },
     onSuccess: (saved) => {
       setForm(saved)
+      queryClient.setQueryData(['settings'], saved)
+    },
+  })
+
+  const resetOnboardingMutation = useMutation({
+    mutationFn: async () => {
+      if (!form) {
+        throw new Error('Settings form is not ready')
+      }
+      return saveSettings({
+        ...form,
+        onboardingCompleted: false,
+      })
+    },
+    onSuccess: (saved) => {
+      setForm(saved)
+      queryClient.setQueryData(['settings'], saved)
+      void queryClient.invalidateQueries({ queryKey: ['bootstrap'] })
+      navigate('/onboarding')
     },
   })
 
@@ -131,6 +153,9 @@ export function SettingsRoute() {
             <div className="button-row" style={{ marginTop: '12px' }}>
               <button className="button button-primary" onClick={() => saveMutation.mutate()} type="button">
                 <Save size={16} /> Save Changes
+              </button>
+              <button className="button" onClick={() => resetOnboardingMutation.mutate()} type="button">
+                <Settings size={16} /> Run Onboarding Again
               </button>
             </div>
           </div>
