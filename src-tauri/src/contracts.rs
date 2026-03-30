@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -38,19 +38,53 @@ pub struct LaunchSettings {
   pub preferred_steam_install_id: Option<String>,
   pub preferred_proton_path: Option<String>,
   pub enable_battlemetrics: bool,
-  pub enable_dzsa_experimental: bool,
+  #[serde(
+    default = "default_true",
+    alias = "enableDzsaExperimental",
+    deserialize_with = "deserialize_boolish"
+  )]
+  pub enable_dzsa_provider: bool,
 }
 
 impl Default for LaunchSettings {
   fn default() -> Self {
     Self {
       default_player_name: String::from("survivor"),
-      launch_mode: LaunchMode::SteamHandoff,
+      launch_mode: LaunchMode::DirectProton,
       preferred_steam_install_id: None,
       preferred_proton_path: None,
       enable_battlemetrics: true,
-      enable_dzsa_experimental: false,
+      enable_dzsa_provider: true,
     }
+  }
+}
+
+fn default_true() -> bool {
+  true
+}
+
+fn deserialize_boolish<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+  D: Deserializer<'de>,
+{
+  #[derive(Deserialize)]
+  #[serde(untagged)]
+  enum Boolish {
+    Bool(bool),
+    U64(u64),
+    I64(i64),
+    String(String),
+  }
+
+  match Boolish::deserialize(deserializer)? {
+    Boolish::Bool(value) => Ok(value),
+    Boolish::U64(value) => Ok(value != 0),
+    Boolish::I64(value) => Ok(value != 0),
+    Boolish::String(value) => match value.trim().to_ascii_lowercase().as_str() {
+      "true" | "1" | "enabled" => Ok(true),
+      "false" | "0" | "disabled" => Ok(false),
+      _ => Err(serde::de::Error::custom("invalid boolean value for enableDzsaProvider")),
+    },
   }
 }
 

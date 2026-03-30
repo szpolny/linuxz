@@ -9,18 +9,18 @@ describe('AppBootstrapSchema', () => {
       dayzInstall: null,
       compatdataReady: false,
       workshopManifestReady: false,
-      availableLaunchModes: ['steamHandoff'],
+      availableLaunchModes: ['directProton'],
       settings: {
         defaultPlayerName: 'survivor',
-        launchMode: 'steamHandoff',
+        launchMode: 'directProton',
         preferredSteamInstallId: null,
         preferredProtonPath: null,
         enableBattlemetrics: true,
-        enableDzsaExperimental: false,
+        enableDzsaProvider: true,
       },
       warnings: [],
     })
 
-    expect(parsed.availableLaunchModes).toEqual(['steamHandoff'])
+    expect(parsed.availableLaunchModes).toEqual(['directProton'])
   })
 })

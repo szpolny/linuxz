@@ -51,7 +51,7 @@ async fn list_servers(
     &request,
     &state.db_path,
     settings.enable_battlemetrics,
-    true,
+    settings.enable_dzsa_provider,
   )
     .await
     .map_err(|error| error.to_string())
@@ -62,8 +62,9 @@ async fn get_server_details(
   state: tauri::State<'_, AppState>,
   lookup: ServerLookup,
 ) -> Result<ServerDetails, String> {
+  let settings = settings::load_settings(&state.db_path).map_err(|error| error.to_string())?;
   let record = resolve_server_record(&state, &lookup.endpoint).await.map_err(|error| error.to_string())?;
-  hydrate_server_details(record, true)
+  hydrate_server_details(record, settings.enable_dzsa_provider)
     .await
     .map_err(|error| error.to_string())
 }
@@ -177,7 +178,7 @@ async fn prepare_join_impl(state: AppState, request: JoinPreparationRequest) -> 
     has_password: false,
     modded: false,
   };
-  let details = hydrate_server_details(record, true).await?;
+  let details = hydrate_server_details(record, request.settings.enable_dzsa_provider).await?;
   let resolved_mods = workshop::reconcile_mods(&dayz, &details.required_mods)?;
   let blocking_issues = if resolved_mods.iter().any(|item| item.installed_state == "missing") {
     vec![String::from("One or more required workshop mods are still missing.")]

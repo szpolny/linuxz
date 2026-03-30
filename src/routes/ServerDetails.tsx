@@ -5,7 +5,7 @@ import { getJobStatus, getServerDetails, getSettings, launchServer, prepareJoin 
 import type { JoinPreparationRequest, ServerDetails } from '../lib/contracts.ts'
 import { JoinJobPanel } from '../components/JoinJobPanel.tsx'
 
-function createJoinRequest(details: ServerDetails, defaultPlayerName: string, launchMode: 'steamHandoff' | 'directProton', preferredSteamInstallId: string | null, preferredProtonPath: string | null, enableBattlemetrics: boolean, enableDzsaExperimental: boolean): JoinPreparationRequest {
+function createJoinRequest(details: ServerDetails, defaultPlayerName: string, preferredSteamInstallId: string | null, preferredProtonPath: string | null, enableBattlemetrics: boolean, enableDzsaProvider: boolean): JoinPreparationRequest {
   return {
     endpoint: details.server.endpoint,
     ip: details.server.ip,
@@ -13,11 +13,11 @@ function createJoinRequest(details: ServerDetails, defaultPlayerName: string, la
     connectPort: details.server.connectPort,
     settings: {
       defaultPlayerName,
-      launchMode,
+      launchMode: 'directProton',
       preferredSteamInstallId,
       preferredProtonPath,
       enableBattlemetrics,
-      enableDzsaExperimental,
+      enableDzsaProvider,
     },
   }
 }
@@ -44,11 +44,10 @@ export function ServerDetailsRoute() {
       ? createJoinRequest(
           detailsQuery.data,
           settingsQuery.data.defaultPlayerName,
-          settingsQuery.data.launchMode,
           settingsQuery.data.preferredSteamInstallId,
           settingsQuery.data.preferredProtonPath,
           settingsQuery.data.enableBattlemetrics,
-          settingsQuery.data.enableDzsaExperimental,
+          settingsQuery.data.enableDzsaProvider,
         )
       : null
 

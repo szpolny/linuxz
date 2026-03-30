@@ -24,11 +24,7 @@ pub fn bootstrap(db_path: &Path) -> Result<AppBootstrap, AppError> {
     .as_ref()
     .map(|install| Path::new(&install.workshop_manifest_path).exists())
     .unwrap_or(false);
-  let available_launch_modes = if compatdata_ready && settings.preferred_proton_path.is_some() {
-    vec![LaunchMode::SteamHandoff, LaunchMode::DirectProton]
-  } else {
-    vec![LaunchMode::SteamHandoff]
-  };
+  let available_launch_modes = vec![LaunchMode::DirectProton];
   let warnings = if installs.is_empty() {
     vec![String::from("No supported Steam installations were detected.")]
   } else if dayz.is_none() {

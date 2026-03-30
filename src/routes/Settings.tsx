@@ -1,7 +1,7 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { bootstrapScan, getSettings, saveSettings } from '../lib/api.ts'
-import type { LaunchMode, LaunchSettings } from '../lib/contracts.ts'
+import type { LaunchSettings } from '../lib/contracts.ts'
 
 export function SettingsRoute() {
   const bootstrapQuery = useQuery({
@@ -54,17 +54,8 @@ export function SettingsRoute() {
                 />
               </div>
               <div className="field">
-                <label htmlFor="launchMode">Launch mode</label>
-                <select
-                  id="launchMode"
-                  value={form.launchMode}
-                  onChange={(event) => {
-                    setForm({ ...form, launchMode: event.target.value as LaunchMode })
-                  }}
-                >
-                  <option value="steamHandoff">Steam handoff</option>
-                  <option value="directProton">Direct Proton</option>
-                </select>
+                <label>Launch mode</label>
+                <input value="Direct Proton" disabled />
               </div>
               <div className="field">
                 <label htmlFor="preferredSteamInstallId">Preferred Steam install</label>
@@ -118,19 +109,19 @@ export function SettingsRoute() {
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="enableDzsaExperimental">DZSA enrichment</label>
+                <label htmlFor="enableDzsaProvider">DZSA provider</label>
                 <select
-                  id="enableDzsaExperimental"
-                  value={form.enableDzsaExperimental ? 'enabled' : 'disabled'}
+                  id="enableDzsaProvider"
+                  value={form.enableDzsaProvider ? 'enabled' : 'disabled'}
                   onChange={(event) => {
                     setForm({
                       ...form,
-                      enableDzsaExperimental: event.target.value === 'enabled',
+                      enableDzsaProvider: event.target.value === 'enabled',
                     })
                   }}
                 >
-                  <option value="disabled">Disabled</option>
                   <option value="enabled">Enabled</option>
+                  <option value="disabled">Disabled</option>
                 </select>
               </div>
             </div>

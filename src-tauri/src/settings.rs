@@ -12,7 +12,21 @@ pub fn load_settings(db_path: &Path) -> Result<LaunchSettings, AppError> {
   );
 
   match row {
-    Ok(json) => Ok(serde_json::from_str(&json)?),
+    Ok(json) => {
+      let mut settings = serde_json::from_str::<LaunchSettings>(&json)?;
+      let needs_normalization = json.contains("\"enableDzsaExperimental\"")
+        || matches!(settings.launch_mode, LaunchMode::SteamHandoff);
+
+      if matches!(settings.launch_mode, LaunchMode::SteamHandoff) {
+        settings.launch_mode = LaunchMode::DirectProton;
+      }
+
+      if needs_normalization {
+        save_settings(db_path, &settings)?;
+      }
+
+      Ok(settings)
+    }
     Err(rusqlite::Error::QueryReturnedNoRows) => {
       let settings = LaunchSettings::default();
       save_settings(db_path, &settings)?;
@@ -64,10 +78,6 @@ pub fn load_cached_servers(db_path: &Path) -> Result<Vec<ServerRecord>, AppError
   Ok(records)
 }
 
-pub fn effective_launch_mode(settings: &LaunchSettings, direct_proton_available: bool) -> LaunchMode {
-  if matches!(settings.launch_mode, LaunchMode::DirectProton) && direct_proton_available {
-    LaunchMode::DirectProton
-  } else {
-    LaunchMode::SteamHandoff
-  }
+pub fn effective_launch_mode(_settings: &LaunchSettings, _direct_proton_available: bool) -> LaunchMode {
+  LaunchMode::DirectProton
 }

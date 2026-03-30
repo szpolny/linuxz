@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const LaunchModeSchema = z.enum(['steamHandoff', 'directProton'])
+export const LaunchModeSchema = z.literal('directProton')
 
 export const SteamInstallSchema = z.object({
   id: z.string(),
@@ -26,7 +26,7 @@ export const LaunchSettingsSchema = z.object({
   preferredSteamInstallId: z.string().nullable(),
   preferredProtonPath: z.string().nullable(),
   enableBattlemetrics: z.boolean(),
-  enableDzsaExperimental: z.boolean(),
+  enableDzsaProvider: z.boolean(),
 })
 
 export const AppBootstrapSchema = z.object({

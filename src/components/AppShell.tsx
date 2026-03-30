@@ -49,7 +49,7 @@ export function AppShell() {
         <div className="brand">
           <div>
             <h1>DayZ Launcher</h1>
-            <p>BattleMetrics browser, DZSA enrichment, Steam-aware launch flow.</p>
+            <p>BattleMetrics browser, DZSA provider, direct Proton launch flow.</p>
           </div>
         </div>
         <nav className="topnav">
