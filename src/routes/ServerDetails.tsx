@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getJobStatus, getServerDetails, getSettings, launchServer, prepareJoin, saveServerFavorite } from '../lib/api.ts'
-import type { JoinPreparationRequest, LaunchSettings, ServerDetails } from '../lib/contracts.ts'
+import type { JoinPreparationRequest, LaunchSettings, PaginatedServersResponse, ServerDetails, ServerLibrary, ServerRecord } from '../lib/contracts.ts'
 import { JoinJobPanel } from '../components/JoinJobPanel.tsx'
 import { 
   ArrowLeft, 
@@ -11,7 +11,6 @@ import {
   Box, 
   AlertTriangle, 
   Activity, 
-  Globe, 
   Users, 
   Wifi,
   Map as MapIcon, 
@@ -20,6 +19,7 @@ import {
   Copy,
   Check,
   Loader2,
+  RefreshCw,
   ServerOff
 } from 'lucide-react'
 import { EmptyState } from '../components/ui/EmptyState.tsx'
@@ -46,6 +46,12 @@ function formatLastJoined(lastJoinedAt: string | null) {
   }
 
   return date.toLocaleString()
+}
+
+function replaceServerRecord(records: ServerRecord[], nextServer: ServerRecord) {
+  return records.map((record) => (
+    record.endpoint === nextServer.endpoint ? { ...record, ...nextServer } : record
+  ))
 }
 
 export function ServerDetailsRoute() {
@@ -139,32 +145,63 @@ export function ServerDetailsRoute() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleRefresh = async () => {
+    const refreshed = await detailsQuery.refetch()
+    const nextDetails = refreshed.data
+    if (!nextDetails) {
+      return
+    }
+
+    prepareMutation.reset()
+    queryClient.setQueryData<ServerDetails>(['server-details', endpoint], nextDetails)
+    queryClient.setQueryData<ServerLibrary>(['server-library'], (current) => {
+      if (!current) {
+        return current
+      }
+
+      return {
+        favorites: replaceServerRecord(current.favorites, nextDetails.server),
+        recents: replaceServerRecord(current.recents, nextDetails.server),
+      }
+    })
+    queryClient.setQueriesData<PaginatedServersResponse>({ queryKey: ['servers'] }, (current) => {
+      if (!current) {
+        return current
+      }
+
+      return {
+        ...current,
+        items: replaceServerRecord(current.items, nextDetails.server),
+      }
+    })
+  }
+
   return (
     <div className="grid two-column">
       <section className="card">
-        <div className="card-title">
-          <h2><Activity size={20} className="stat-icon" /> Server Details</h2>
-          <div className="button-row">
+        <div className="server-details-header">
+          <h2 className="server-details-title"><Activity size={20} className="stat-icon" /> {details?.server.displayName ?? 'Server Details'}</h2>
+          <div className="server-details-actions">
+            <button
+              className="button button-icon"
+              disabled={!endpoint || detailsQuery.isFetching}
+              onClick={() => void handleRefresh()}
+              title="Refresh server details"
+              aria-label="Refresh server details"
+              type="button"
+            >
+              <RefreshCw size={16} className={detailsQuery.isFetching ? 'spin' : ''} />
+            </button>
             {details ? (
-              <>
-                <button
-                  className="button button-icon"
-                  onClick={handleCopy}
-                  title="Copy IP Address"
-                  aria-label="Copy IP Address"
-                >
-                  {copied ? <Check size={16} className="ping-good" /> : <Copy size={16} />}
-                </button>
-                <button
-                  className={`button ${details.server.isFavorite ? 'favorite-toggle-active' : ''}`}
-                  disabled={favoriteMutation.isPending}
-                  onClick={() => favoriteMutation.mutate()}
-                  type="button"
-                >
-                  <Star fill={details.server.isFavorite ? 'currentColor' : 'none'} size={16} />
-                  {details.server.isFavorite ? 'Favorited' : 'Favorite'}
-                </button>
-              </>
+              <button
+                className={`button ${details.server.isFavorite ? 'favorite-toggle-active' : ''}`}
+                disabled={favoriteMutation.isPending}
+                onClick={() => favoriteMutation.mutate()}
+                type="button"
+              >
+                <Star fill={details.server.isFavorite ? 'currentColor' : 'none'} size={16} />
+                {details.server.isFavorite ? 'Favorited' : 'Favorite'}
+              </button>
             ) : null}
             <Link className="button" to="/servers">
               <ArrowLeft size={16} /> Back
@@ -188,13 +225,18 @@ export function ServerDetailsRoute() {
           <div className="stack">
             <div className="details-grid">
               <div className="detail-item">
-                <div className="muted"><Globe size={14} inline-block /> Name</div>
-                <div style={{ fontWeight: 600 }}>{details.server.displayName}</div>
-              </div>
-              <div className="detail-item">
                 <div className="muted">Endpoint</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  {details.server.endpoint}
+                  <span>{details.server.endpoint}</span>
+                  <button
+                    className="button button-icon"
+                    onClick={handleCopy}
+                    title="Copy server endpoint"
+                    aria-label="Copy server endpoint"
+                    type="button"
+                  >
+                    {copied ? <Check size={16} className="ping-good" /> : <Copy size={16} />}
+                  </button>
                 </div>
               </div>
               <div className="detail-item">
@@ -280,10 +322,9 @@ export function ServerDetailsRoute() {
               <div style={{ fontWeight: 600 }}>{joinRequest.settings.defaultPlayerName || 'Not Set'}</div>
             </div>
             
-            <div className="button-row" style={{ marginTop: '12px' }}>
+            <div className="join-actions">
               <button 
-                className="button" 
-                style={{ flex: 1 }} 
+                className="button join-action-button" 
                 onClick={() => prepareMutation.mutate()} 
                 type="button"
                 disabled={prepareMutation.isPending}
@@ -291,8 +332,7 @@ export function ServerDetailsRoute() {
                 {prepareMutation.isPending ? <Loader2 size={16} className="spin" /> : 'Verify Connection'}
               </button>
               <button 
-                className="button button-primary" 
-                style={{ flex: 1.5 }} 
+                className="button button-primary join-action-button" 
                 onClick={() => launchMutation.mutate()} 
                 type="button"
                 disabled={launchMutation.isPending}
@@ -334,9 +374,9 @@ export function ServerDetailsRoute() {
           detailsQuery.isLoading ? (
             <div className="stack">
               <Skeleton style={{ height: '60px', borderRadius: '12px' }} />
-              <div className="button-row">
-                <Skeleton style={{ height: '40px', flex: 1, borderRadius: '12px' }} />
-                <Skeleton style={{ height: '40px', flex: 1.5, borderRadius: '12px' }} />
+              <div className="join-actions">
+                <Skeleton style={{ height: '56px', borderRadius: '12px' }} />
+                <Skeleton style={{ height: '56px', borderRadius: '12px' }} />
               </div>
             </div>
           ) : (
