@@ -79,7 +79,9 @@ async fn get_server_details(
 
 #[tauri::command]
 async fn get_server_library(state: tauri::State<'_, AppState>) -> Result<ServerLibrary, String> {
-    settings::load_server_library(&state.db_path, 6).map_err(|error| error.to_string())
+    let library =
+        settings::load_server_library(&state.db_path, 6).map_err(|error| error.to_string())?;
+    Ok(providers::refresh_server_library(library).await)
 }
 
 #[tauri::command]

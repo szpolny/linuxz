@@ -13,6 +13,7 @@ import {
   Activity, 
   Globe, 
   Users, 
+  Wifi,
   Map as MapIcon, 
   Star, 
   History,
@@ -205,6 +206,10 @@ export function ServerDetailsRoute() {
                 <div>
                   {details.server.players}/{details.server.maxPlayers}
                 </div>
+              </div>
+              <div className="detail-item">
+                <div className="muted"><Wifi size={14} inline-block /> Ping</div>
+                <div>{details.server.ping === null ? 'N/A' : `${details.server.ping} ms`}</div>
               </div>
               <div className="detail-item">
                 <div className="muted"><MapIcon size={14} inline-block /> Map</div>

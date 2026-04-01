@@ -2185,6 +2185,7 @@ dependencies = [
  "serde",
  "serde_json",
  "steamworks",
+ "steamworks-sys",
  "tauri",
  "tauri-build",
  "tauri-plugin-log",

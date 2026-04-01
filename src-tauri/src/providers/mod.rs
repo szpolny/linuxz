@@ -1,10 +1,14 @@
 pub mod battlemetrics;
 pub mod dzsa;
+pub mod network_ping;
 pub mod steam_a2s;
 
-use crate::contracts::{ListServersRequest, RequiredMod, ServerDetails, ServerRecord, ServerSort};
+use crate::contracts::{
+    ListServersRequest, RequiredMod, ServerDetails, ServerLibrary, ServerRecord, ServerSort,
+};
 use crate::error::AppError;
 use crate::settings;
+use crate::steam::matchmaking::{self, MatchmakingServerSnapshot};
 use std::collections::BTreeMap;
 use std::path::Path;
 use tokio::task::JoinSet;
@@ -57,6 +61,10 @@ pub async fn list_servers(
         })
         .collect::<Vec<_>>();
 
+    if matches!(request.sort_by, ServerSort::Ping) {
+        filtered = network_ping::enrich_rtt(filtered, Duration::from_secs(1)).await;
+    }
+
     filtered.sort_by(|left, right| match request.sort_by {
         ServerSort::Players => right
             .players
@@ -81,6 +89,10 @@ pub async fn list_servers(
     } else {
         filtered[start..filtered.len().min(end)].to_vec()
     };
+
+    if !matches!(request.sort_by, ServerSort::Ping) {
+        page_items = network_ping::enrich_rtt(page_items, Duration::from_secs(1)).await;
+    }
 
     if enable_dzsa {
         page_items = enrich_browser_page_with_dzsa(page_items).await;
@@ -108,25 +120,44 @@ pub async fn get_server_details(
         labels: Vec::new(),
     };
 
+    let matchmaking_snapshots =
+        matchmaking::fetch_server_snapshots(vec![server.clone()], Duration::from_secs(2)).await;
+    let matchmaking_snapshot = matchmaking_snapshots.get(&server.endpoint);
+    if let Some(snapshot) = matchmaking_snapshot {
+        apply_matchmaking_snapshot(&mut details.server, snapshot);
+        details
+            .provider_provenance
+            .push(String::from("steamworks-matchmaking"));
+    }
+
     if let Ok(snapshot) =
         steam_a2s::fetch_snapshot(&server.ip, server.query_port, Duration::from_secs(2)).await
     {
-        details.server.display_name = snapshot.info.name.clone();
-        details.server.map = snapshot.info.map.clone();
-        details.server.players = u32::from(snapshot.info.players);
-        details.server.max_players = u32::from(snapshot.info.max_players);
         details.server.version = Some(snapshot.info.version.clone());
-        details.server.ping = Some(snapshot.ping_ms);
-        details.server.connect_port = Some(
-            server
-                .connect_port
-                .unwrap_or(server.query_port.saturating_sub(3)),
-        );
+        if matchmaking_snapshot.is_none() {
+            details.server.display_name = snapshot.info.name.clone();
+            details.server.map = snapshot.info.map.clone();
+            details.server.players = u32::from(snapshot.info.players);
+            details.server.max_players = u32::from(snapshot.info.max_players);
+            details.server.ping = Some(snapshot.ping_ms);
+            details.server.connect_port = Some(
+                server
+                    .connect_port
+                    .unwrap_or(server.query_port.saturating_sub(3)),
+            );
+        }
         details.provider_provenance.push(String::from("a2s-info"));
-    } else {
+    } else if matchmaking_snapshot.is_none() {
         details.warnings.push(String::from(
             "A2S live query failed; using cached browser values.",
         ));
+    }
+
+    if let Some(ping_ms) =
+        network_ping::probe_rtt_ms(&details.server.ip, Duration::from_secs(2)).await
+    {
+        details.server.ping = Some(ping_ms);
+        details.provider_provenance.push(String::from("icmp-rtt"));
     }
 
     if enable_dzsa {
@@ -176,9 +207,32 @@ pub async fn get_server_details(
     Ok(details)
 }
 
+pub async fn refresh_server_library(mut library: ServerLibrary) -> ServerLibrary {
+    library.favorites = network_ping::enrich_rtt(library.favorites, Duration::from_secs(1)).await;
+    library.recents = network_ping::enrich_rtt(library.recents, Duration::from_secs(1)).await;
+    library
+}
+
 async fn enrich_live_browser_data(servers: Vec<ServerRecord>) -> Vec<ServerRecord> {
+    let matchmaking_snapshots =
+        matchmaking::fetch_server_snapshots(servers.clone(), Duration::from_millis(1800)).await;
     let mut join_set = JoinSet::new();
     for (index, server) in servers.into_iter().enumerate() {
+        if let Some(snapshot) = matchmaking_snapshots.get(&server.endpoint) {
+            let mut server = server;
+            apply_matchmaking_snapshot(&mut server, snapshot);
+            server.readiness = String::from("live");
+            if !server
+                .source_coverage
+                .iter()
+                .any(|entry| entry == "steamworks")
+            {
+                server.source_coverage.push(String::from("steamworks"));
+            }
+            join_set.spawn(async move { (index, server, None) });
+            continue;
+        }
+
         join_set.spawn(async move {
             let snapshot = steam_a2s::fetch_snapshot(
                 &server.ip,
@@ -213,6 +267,16 @@ async fn enrich_live_browser_data(servers: Vec<ServerRecord>) -> Vec<ServerRecor
     }
     enriched.sort_by_key(|(index, _)| *index);
     enriched.into_iter().map(|(_, server)| server).collect()
+}
+
+fn apply_matchmaking_snapshot(server: &mut ServerRecord, snapshot: &MatchmakingServerSnapshot) {
+    server.display_name = snapshot.display_name.clone();
+    server.map = snapshot.map.clone();
+    server.players = snapshot.players;
+    server.max_players = snapshot.max_players;
+    server.ping = Some(snapshot.ping_ms);
+    server.connect_port = Some(snapshot.connect_port);
+    server.has_password = snapshot.has_password;
 }
 
 async fn enrich_browser_page_with_dzsa(servers: Vec<ServerRecord>) -> Vec<ServerRecord> {
