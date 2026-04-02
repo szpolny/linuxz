@@ -12,8 +12,8 @@ mod workshop;
 use crate::app_state::AppState;
 use crate::contracts::{
     AppBootstrap, JobLookup, JoinJobStatus, JoinPreparationRequest, JoinPreparationResult,
-    LaunchSettings, ListServersRequest, PaginatedServersResponse, RequiredMod, ServerDetails,
-    ServerLibrary, ServerLookup, ServerRecord,
+    LaunchSettings, ListServersRequest, PaginatedServersResponse, ProtonDiscoveryRequest,
+    ProtonInstall, RequiredMod, ServerDetails, ServerLibrary, ServerLookup, ServerRecord,
 };
 use crate::error::AppError;
 use crate::jobs::{get_job, upsert_job};
@@ -44,6 +44,14 @@ async fn save_settings(
     settings: LaunchSettings,
 ) -> Result<LaunchSettings, String> {
     settings::save_settings(&state.db_path, &settings).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn list_installed_protons(
+    request: ProtonDiscoveryRequest,
+) -> Result<Vec<ProtonInstall>, String> {
+    crate::steam::discovery::list_proton_installs(request.preferred_steam_install_id.as_deref())
+        .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -439,6 +447,7 @@ pub fn run() {
             bootstrap_scan,
             get_settings,
             save_settings,
+            list_installed_protons,
             list_servers,
             get_server_details,
             get_server_library,

@@ -2,8 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Monitor, Save, Settings, Shield, Info, Zap, User, Loader2, AlertTriangle } from 'lucide-react'
-import { bootstrapScan, getSettings, saveSettings } from '../lib/api.ts'
+import { bootstrapScan, getSettings, listInstalledProtons, saveSettings } from '../lib/api.ts'
 import type { LaunchSettings } from '../lib/contracts.ts'
+import { ProtonSelector } from '../components/ProtonSelector.tsx'
 import { Input } from '../components/ui/Input.tsx'
 import { Skeleton } from '../components/ui/Skeleton.tsx'
 import { EmptyState } from '../components/ui/EmptyState.tsx'
@@ -30,6 +31,12 @@ export function OnboardingRoute() {
       setForm(settingsQuery.data)
     }
   }, [settingsQuery.data])
+
+  const protonQuery = useQuery({
+    queryKey: ['installedProtons', form?.preferredSteamInstallId ?? null],
+    queryFn: () => listInstalledProtons(form?.preferredSteamInstallId ?? null),
+    enabled: Boolean(form),
+  })
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -176,15 +183,15 @@ export function OnboardingRoute() {
                 ))}
               </select>
             </div>
-            <Input
-              id="onboardingProtonPath"
-              label="Proton Binary Path"
-              placeholder="/path/to/proton"
-              value={form.preferredProtonPath ?? ''}
-              onChange={(event) => {
+            <ProtonSelector
+              selectId="onboardingProtonSelect"
+              inputId="onboardingProtonPath"
+              selectedPath={form.preferredProtonPath}
+              availableProtons={protonQuery.data}
+              onPathChange={(path) => {
                 setForm({
                   ...form,
-                  preferredProtonPath: event.target.value || null,
+                  preferredProtonPath: path,
                 })
               }}
             />

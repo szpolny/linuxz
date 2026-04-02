@@ -8,6 +8,9 @@ import {
   type JoinJobStatus,
   type JoinPreparationRequest,
   type JoinPreparationResult,
+  ProtonDiscoveryRequestSchema,
+  ProtonInstallSchema,
+  type ProtonInstall,
   LaunchSettingsSchema,
   type LaunchSettings,
   ListServersRequestSchema,
@@ -44,6 +47,11 @@ export async function getSettings(): Promise<LaunchSettings> {
 export async function saveSettings(settings: LaunchSettings): Promise<LaunchSettings> {
   const payload = LaunchSettingsSchema.parse(settings)
   return typedInvoke('save_settings', { settings: payload }, LaunchSettingsSchema)
+}
+
+export async function listInstalledProtons(preferredSteamInstallId: string | null): Promise<ProtonInstall[]> {
+  const request = ProtonDiscoveryRequestSchema.parse({ preferredSteamInstallId })
+  return typedInvoke('list_installed_protons', { request }, ProtonInstallSchema.array())
 }
 
 export async function listServers(request: ListServersRequest): Promise<PaginatedServersResponse> {

@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { bootstrapScan, getSettings, saveSettings } from '../lib/api.ts'
+import { bootstrapScan, getSettings, listInstalledProtons, saveSettings } from '../lib/api.ts'
 import type { LaunchSettings } from '../lib/contracts.ts'
 import { Settings, Save, Cpu, Monitor, Zap, Shield, Info, Loader2, AlertTriangle, User } from 'lucide-react'
+import { ProtonSelector } from '../components/ProtonSelector.tsx'
 import { Input } from '../components/ui/Input.tsx'
 import { Skeleton } from '../components/ui/Skeleton.tsx'
 import { EmptyState } from '../components/ui/EmptyState.tsx'
@@ -26,6 +27,12 @@ export function SettingsRoute() {
       setForm(settingsQuery.data)
     }
   }, [settingsQuery.data])
+
+  const protonQuery = useQuery({
+    queryKey: ['installedProtons', form?.preferredSteamInstallId ?? null],
+    queryFn: () => listInstalledProtons(form?.preferredSteamInstallId ?? null),
+    enabled: Boolean(form),
+  })
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -116,15 +123,15 @@ export function SettingsRoute() {
                   ))}
                 </select>
               </div>
-              <Input
-                id="preferredProtonPath"
-                label="Proton Binary Path"
-                placeholder="/path/to/proton"
-                value={form.preferredProtonPath ?? ''}
-                onChange={(event) => {
+              <ProtonSelector
+                selectId="preferredProtonSelect"
+                inputId="preferredProtonPath"
+                selectedPath={form.preferredProtonPath}
+                availableProtons={protonQuery.data}
+                onPathChange={(path) => {
                   setForm({
                     ...form,
-                    preferredProtonPath: event.target.value || null,
+                    preferredProtonPath: path,
                   })
                 }}
               />

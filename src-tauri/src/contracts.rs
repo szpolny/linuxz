@@ -32,6 +32,16 @@ pub struct DayzInstall {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ProtonInstall {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub steam_install_id: String,
+    pub library_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct LaunchSettings {
     #[serde(default)]
     pub onboarding_completed: bool,
@@ -48,6 +58,12 @@ pub struct LaunchSettings {
         deserialize_with = "deserialize_boolish"
     )]
     pub enable_dzsa_provider: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProtonDiscoveryRequest {
+    pub preferred_steam_install_id: Option<String>,
 }
 
 impl Default for LaunchSettings {

@@ -1,6 +1,7 @@
-use crate::contracts::{AppBootstrap, DayzInstall, LaunchMode, SteamInstall};
+use crate::contracts::{AppBootstrap, DayzInstall, LaunchMode, ProtonInstall, SteamInstall};
 use crate::error::AppError;
 use crate::settings;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 const DAYZ_APP_ID: &str = "221100";
@@ -9,6 +10,7 @@ const DAYZ_APP_ID: &str = "221100";
 pub struct SteamInstallResolved {
     pub install: SteamInstall,
     pub dayz: Option<DayzInstall>,
+    pub library_paths: Vec<PathBuf>,
 }
 
 pub fn bootstrap(db_path: &Path) -> Result<AppBootstrap, AppError> {
@@ -81,9 +83,33 @@ pub fn detect_steam_installs() -> Result<Vec<SteamInstallResolved>, AppError> {
             has_workshop_manifest,
         };
         let dayz = resolve_dayz_install(&root, &libraries)?;
-        candidates.push(SteamInstallResolved { install, dayz });
+        candidates.push(SteamInstallResolved {
+            install,
+            dayz,
+            library_paths: libraries,
+        });
     }
     Ok(candidates)
+}
+
+pub fn list_proton_installs(
+    preferred_id: Option<&str>,
+) -> Result<Vec<ProtonInstall>, AppError> {
+    let installs = detect_steam_installs()?;
+    let selected = select_install(&installs, preferred_id);
+
+    if let Some(install) = selected {
+        return Ok(discover_proton_installs(install));
+    }
+
+    let mut seen = HashSet::new();
+    let mut all = installs
+        .iter()
+        .flat_map(discover_proton_installs)
+        .filter(|install| seen.insert(install.path.clone()))
+        .collect::<Vec<_>>();
+    sort_proton_installs(&mut all);
+    Ok(all)
 }
 
 fn candidate_roots() -> Vec<(&'static str, PathBuf)> {
@@ -185,6 +211,85 @@ fn select_install<'a>(
         .or_else(|| installs.first())
 }
 
+fn discover_proton_installs(install: &SteamInstallResolved) -> Vec<ProtonInstall> {
+    let mut seen = HashSet::new();
+    let mut detected = Vec::new();
+
+    for library in &install.library_paths {
+        collect_protons_from_dir(
+            install,
+            &library.join("common"),
+            library,
+            &mut seen,
+            &mut detected,
+        );
+    }
+
+    collect_protons_from_dir(
+        install,
+        &PathBuf::from(&install.install.root_path).join("compatibilitytools.d"),
+        &PathBuf::from(&install.install.root_path),
+        &mut seen,
+        &mut detected,
+    );
+
+    sort_proton_installs(&mut detected);
+    detected
+}
+
+fn collect_protons_from_dir(
+    install: &SteamInstallResolved,
+    search_dir: &Path,
+    label_path: &Path,
+    seen: &mut HashSet<String>,
+    detected: &mut Vec<ProtonInstall>,
+) {
+    let Ok(entries) = std::fs::read_dir(search_dir) else {
+        return;
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let proton = entry.path().join("proton");
+        if !proton.exists() {
+            continue;
+        }
+
+        let path = proton.display().to_string();
+        if !seen.insert(path.clone()) {
+            continue;
+        }
+
+        detected.push(ProtonInstall {
+            id: path.clone(),
+            name: entry.file_name().to_string_lossy().to_string(),
+            path,
+            steam_install_id: install.install.id.clone(),
+            library_path: label_path.display().to_string(),
+        });
+    }
+}
+
+fn sort_proton_installs(installs: &mut [ProtonInstall]) {
+    installs.sort_by(|left, right| {
+        proton_rank(&left.name)
+            .cmp(&proton_rank(&right.name))
+            .then_with(|| left.name.cmp(&right.name))
+            .then_with(|| left.path.cmp(&right.path))
+    });
+}
+
+fn proton_rank(name: &str) -> (u8, String) {
+    let normalized = name.to_ascii_lowercase();
+    let priority = if normalized.contains("experimental") {
+        0
+    } else if normalized.contains("hotfix") {
+        1
+    } else {
+        2
+    };
+    (priority, normalized)
+}
+
 pub fn extract_value(contents: &str, key: &str) -> Option<String> {
     for line in contents.lines() {
         let fields = quoted_fields(line);
@@ -217,7 +322,23 @@ pub fn quoted_fields(line: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{extract_value, quoted_fields};
+    use super::{
+        discover_proton_installs, extract_value, proton_rank, quoted_fields, SteamInstallResolved,
+    };
+    use crate::contracts::SteamInstall;
+    use std::path::PathBuf;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_test_dir() -> PathBuf {
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock before unix epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "dayz-launcher-steam-discovery-test-{}-{nanos}",
+            std::process::id()
+        ))
+    }
 
     #[test]
     fn extracts_manifest_value() {
@@ -235,5 +356,73 @@ mod tests {
             fields,
             vec!["path".to_string(), "/games/SteamLibrary".to_string()]
         );
+    }
+
+    #[test]
+    fn discovers_installed_protons_in_a_library() {
+        let temp = unique_test_dir();
+        let common = temp.join("steamapps/common");
+        let experimental = common.join("Proton - Experimental");
+        let ge = common.join("GE-Proton9-4");
+        std::fs::create_dir_all(&experimental).expect("create experimental directory");
+        std::fs::create_dir_all(&ge).expect("create ge directory");
+        std::fs::write(experimental.join("proton"), b"#!/bin/sh").expect("write proton file");
+        std::fs::write(ge.join("proton"), b"#!/bin/sh").expect("write ge proton file");
+
+        let installs = discover_proton_installs(&SteamInstallResolved {
+            install: SteamInstall {
+                id: "native:/steam".to_string(),
+                kind: "native".to_string(),
+                root_path: temp.display().to_string(),
+                library_paths: vec![temp.join("steamapps").display().to_string()],
+                has_dayz: true,
+                has_workshop_manifest: true,
+            },
+            dayz: None,
+            library_paths: vec![temp.join("steamapps")],
+        });
+
+        assert_eq!(installs.len(), 2);
+        assert_eq!(installs[0].name, "Proton - Experimental");
+        assert_eq!(installs[1].name, "GE-Proton9-4");
+
+        let _ = std::fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn discovers_custom_protons_from_compatibilitytools_directory() {
+        let temp = unique_test_dir();
+        let compat = temp.join("compatibilitytools.d");
+        let ge = compat.join("GE-Proton10-33");
+        let tkg = compat.join("Proton-Tkg-2538");
+        std::fs::create_dir_all(&ge).expect("create ge directory");
+        std::fs::create_dir_all(&tkg).expect("create tkg directory");
+        std::fs::write(ge.join("proton"), b"#!/bin/sh").expect("write ge proton file");
+        std::fs::write(tkg.join("proton"), b"#!/bin/sh").expect("write tkg proton file");
+
+        let installs = discover_proton_installs(&SteamInstallResolved {
+            install: SteamInstall {
+                id: "native:/steam".to_string(),
+                kind: "native".to_string(),
+                root_path: temp.display().to_string(),
+                library_paths: vec![temp.join("steamapps").display().to_string()],
+                has_dayz: true,
+                has_workshop_manifest: true,
+            },
+            dayz: None,
+            library_paths: vec![temp.join("steamapps")],
+        });
+
+        assert_eq!(installs.len(), 2);
+        assert_eq!(installs[0].name, "GE-Proton10-33");
+        assert_eq!(installs[1].name, "Proton-Tkg-2538");
+
+        let _ = std::fs::remove_dir_all(temp);
+    }
+
+    #[test]
+    fn ranks_experimental_ahead_of_other_runtimes() {
+        assert!(proton_rank("Proton - Experimental") < proton_rank("Proton 9.0"));
+        assert!(proton_rank("Proton Hotfix") < proton_rank("GE-Proton9-4"));
     }
 }

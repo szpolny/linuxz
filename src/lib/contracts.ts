@@ -20,6 +20,14 @@ export const DayzInstallSchema = z.object({
   launcherPresetPath: z.string(),
 })
 
+export const ProtonInstallSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  path: z.string(),
+  steamInstallId: z.string(),
+  libraryPath: z.string(),
+})
+
 export const LaunchSettingsSchema = z.object({
   onboardingCompleted: z.boolean(),
   defaultPlayerName: z.string(),
@@ -29,6 +37,10 @@ export const LaunchSettingsSchema = z.object({
   customLaunchCommand: z.string().nullable(),
   enableBattlemetrics: z.boolean(),
   enableDzsaProvider: z.boolean(),
+})
+
+export const ProtonDiscoveryRequestSchema = z.object({
+  preferredSteamInstallId: z.string().nullable(),
 })
 
 export const AppBootstrapSchema = z.object({
@@ -139,6 +151,7 @@ export const JoinJobStatusSchema = z.object({
 export type LaunchMode = z.infer<typeof LaunchModeSchema>
 export type SteamInstall = z.infer<typeof SteamInstallSchema>
 export type DayzInstall = z.infer<typeof DayzInstallSchema>
+export type ProtonInstall = z.infer<typeof ProtonInstallSchema>
 export type LaunchSettings = z.infer<typeof LaunchSettingsSchema>
 export type AppBootstrap = z.infer<typeof AppBootstrapSchema>
 export type ServerRecord = z.infer<typeof ServerRecordSchema>
