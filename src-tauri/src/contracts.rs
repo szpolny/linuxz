@@ -144,6 +144,8 @@ pub struct ServerRecord {
     pub has_password: bool,
     pub modded: bool,
     #[serde(default)]
+    pub mod_count: u32,
+    #[serde(default)]
     pub official: bool,
     #[serde(default)]
     pub is_favorite: bool,

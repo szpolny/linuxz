@@ -9,6 +9,7 @@ import {
   Wifi,
   Map as MapIcon,
   Globe,
+  Package,
   Search,
   Filter,
   ChevronLeft,
@@ -57,6 +58,10 @@ type ServerCardProps = {
 function ServerCard({ server, onToggleFavorite, pendingEndpoint }: ServerCardProps) {
   const lastJoinedLabel = formatLastJoined(server.lastJoinedAt)
   const favoritePending = pendingEndpoint === server.endpoint
+  const modCountLabel =
+    server.modded && server.modCount === 0 && !server.sourceCoverage.includes('dzsa')
+      ? '? mods'
+      : `${server.modCount} mods`
 
   return (
     <div className="server-row">
@@ -94,6 +99,10 @@ function ServerCard({ server, onToggleFavorite, pendingEndpoint }: ServerCardPro
             <div className="stat">
               <MapIcon size={14} className="stat-icon" />
               <div className="stat-value">{server.map}</div>
+            </div>
+            <div className="stat">
+              <Package size={14} className="stat-icon" />
+              <div className="stat-value">{modCountLabel}</div>
             </div>
             <div className="stat">
               <Globe size={14} className="stat-icon" />

@@ -24,11 +24,20 @@ pub async fn list_servers(
 ) -> Result<PaginatedServersResponse, AppError> {
     let normalized_search = request.search.trim().to_lowercase();
     let search_enabled = !normalized_search.is_empty();
+    let cached_servers = settings::load_cached_servers(db_path)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|server| (server.endpoint.clone(), server))
+        .collect::<BTreeMap<_, _>>();
     let mut servers = if enable_battlemetrics {
         battlemetrics::list_servers(request).await?
     } else {
         settings::load_cached_servers(db_path)?
     };
+
+    if enable_battlemetrics {
+        merge_cached_browser_metadata(&mut servers, &cached_servers);
+    }
 
     if servers.is_empty() {
         servers = settings::load_cached_servers(db_path)?;
@@ -65,6 +74,7 @@ pub async fn list_servers(
     }
 
     sort_servers(&mut page_items, &request.sort_by);
+    settings::cache_servers(db_path, &page_items)?;
     response.items = page_items;
 
     Ok(response)
@@ -134,6 +144,7 @@ pub async fn get_server_details(
                 details.server.map = extra.map.clone();
                 details.server.version = Some(extra.version.clone());
                 details.server.has_password = extra.password;
+                details.server.mod_count = extra.mods.len() as u32;
                 details
                     .rules
                     .insert(String::from("battleye"), extra.battleye.to_string());
@@ -261,7 +272,10 @@ fn matches_server_filters(
         return true;
     }
 
-    server.display_name.to_lowercase().contains(normalized_search)
+    server
+        .display_name
+        .to_lowercase()
+        .contains(normalized_search)
         || server.map.to_lowercase().contains(normalized_search)
         || server.endpoint.to_lowercase().contains(normalized_search)
 }
@@ -315,12 +329,45 @@ fn apply_matchmaking_snapshot(server: &mut ServerRecord, snapshot: &MatchmakingS
     server.has_password = snapshot.has_password;
 }
 
+fn merge_cached_browser_metadata(
+    servers: &mut [ServerRecord],
+    cached_servers: &BTreeMap<String, ServerRecord>,
+) {
+    for server in servers {
+        let Some(cached) = cached_servers.get(&server.endpoint) else {
+            continue;
+        };
+
+        if server.mod_count == 0 && cached.mod_count > 0 {
+            server.mod_count = cached.mod_count;
+        }
+
+        if server.connect_port.is_none() {
+            server.connect_port = cached.connect_port;
+        }
+
+        if server.version.is_none() {
+            server.version = cached.version.clone();
+        }
+
+        if cached.source_coverage.iter().any(|entry| entry == "dzsa")
+            && !server.source_coverage.iter().any(|entry| entry == "dzsa")
+        {
+            server.source_coverage.push(String::from("dzsa"));
+        }
+
+        if cached.mod_count > 0 {
+            server.modded = true;
+        }
+    }
+}
+
 async fn enrich_browser_page_with_dzsa(servers: Vec<ServerRecord>) -> Vec<ServerRecord> {
     let mut join_set = JoinSet::new();
     for (index, server) in servers.into_iter().enumerate() {
         join_set.spawn(async move {
             let dzsa = tokio::time::timeout(
-                Duration::from_millis(1400),
+                Duration::from_millis(2200),
                 dzsa::fetch_details_for_server(&server.ip, server.query_port, server.connect_port),
             )
             .await
@@ -339,6 +386,7 @@ async fn enrich_browser_page_with_dzsa(servers: Vec<ServerRecord>) -> Vec<Server
                 server.version = Some(extra.version);
                 server.connect_port = Some(extra.game_port);
                 server.has_password = extra.password;
+                server.mod_count = extra.mods.len() as u32;
                 server.modded = server.modded || !extra.mods.is_empty();
                 if !server.source_coverage.iter().any(|entry| entry == "dzsa") {
                     server.source_coverage.push(String::from("dzsa"));

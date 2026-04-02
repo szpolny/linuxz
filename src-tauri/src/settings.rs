@@ -363,6 +363,7 @@ mod tests {
             country: Some(String::from("PL")),
             has_password: false,
             modded: true,
+            mod_count: 12,
             official: false,
             is_favorite: false,
             last_joined_at: None,

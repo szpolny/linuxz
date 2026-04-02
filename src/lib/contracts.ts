@@ -70,6 +70,7 @@ export const ServerRecordSchema = z.object({
   country: z.string().nullable(),
   hasPassword: z.boolean(),
   modded: z.boolean(),
+  modCount: z.number().int().nonnegative().default(0),
   official: z.boolean().default(false),
   isFavorite: z.boolean().default(false),
   lastJoinedAt: z.string().nullable().default(null),

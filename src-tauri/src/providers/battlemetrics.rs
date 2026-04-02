@@ -120,6 +120,7 @@ fn map_server_record(server: BattleMetricsServer) -> ServerRecord {
         country: server.attributes.country,
         has_password: server.attributes.details.password,
         modded: server.attributes.details.modded,
+        mod_count: 0,
         official: server.attributes.details.official,
         is_favorite: false,
         last_joined_at: None,

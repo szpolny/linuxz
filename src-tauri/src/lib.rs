@@ -80,9 +80,12 @@ async fn get_server_details(
     let record = resolve_server_record(&state, &lookup.endpoint)
         .await
         .map_err(|error| error.to_string())?;
-    hydrate_server_details(record, settings.enable_dzsa_provider)
+    let details = hydrate_server_details(record, settings.enable_dzsa_provider)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    settings::cache_servers(&state.db_path, std::slice::from_ref(&details.server))
+        .map_err(|error| error.to_string())?;
+    Ok(details)
 }
 
 #[tauri::command]
@@ -184,6 +187,7 @@ async fn resolve_server_record(state: &AppState, endpoint: &str) -> Result<Serve
         country: None,
         has_password: false,
         modded: false,
+        mod_count: 0,
         official: false,
         is_favorite: false,
         last_joined_at: None,
@@ -214,6 +218,7 @@ async fn prepare_join_impl(
         country: None,
         has_password: false,
         modded: false,
+        mod_count: 0,
         official: false,
         is_favorite: false,
         last_joined_at: None,
