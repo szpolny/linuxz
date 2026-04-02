@@ -1,0 +1,80 @@
+pkgname=linuxz
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Linux-first DayZ launcher for DayZ"
+arch=('x86_64')
+url='https://github.com/szpolny/linuz'
+license=('MIT')
+depends=(
+  'gtk3'
+  'webkit2gtk-4.1'
+  'libappindicator'
+)
+makedepends=(
+  'nodejs'
+  'pnpm'
+  'rust'
+)
+options=('!debug' '!buildflags')
+
+_repo_root="$(realpath "${startdir}/../..")"
+_builddir="${pkgname}-${pkgver}"
+
+prepare() {
+  rm -rf "${srcdir:?}/${_builddir}"
+  install -d "${srcdir}/${_builddir}"
+  bsdtar \
+    --exclude='./.git' \
+    --exclude='./dist' \
+    --exclude='./node_modules' \
+    --exclude='./packaging/arch/pkg' \
+    --exclude='./packaging/arch/src' \
+    --exclude='./packaging/arch/*.pkg.tar.*' \
+    --exclude='./src-tauri/target' \
+    -cf - \
+    -C "${_repo_root}" \
+    . | bsdtar -xf - -C "${srcdir}/${_builddir}"
+}
+
+build() {
+  cd "${srcdir}/${_builddir}"
+  unset CFLAGS
+  unset CXXFLAGS
+  unset CPPFLAGS
+  unset LDFLAGS
+  unset RUSTFLAGS
+  pnpm install --frozen-lockfile
+  pnpm tauri build --no-bundle
+}
+
+package() {
+  cd "${srcdir}/${_builddir}"
+
+  local steam_api_path
+  steam_api_path="$(find src-tauri/target/release/build -path '*/out/libsteam_api.so' -print -quit)"
+
+  if [[ -z "${steam_api_path}" ]]; then
+    echo "libsteam_api.so was not produced by the build" >&2
+    return 1
+  fi
+
+  install -Dm755 "src-tauri/target/release/linuxz" "${pkgdir}/usr/lib/${pkgname}/linuxz"
+  install -Dm755 "${steam_api_path}" "${pkgdir}/usr/lib/${pkgname}/libsteam_api.so"
+  install -Dm755 /dev/stdin "${pkgdir}/usr/bin/${pkgname}" <<'EOF'
+#!/usr/bin/env bash
+export LD_LIBRARY_PATH="/usr/lib/linuxz${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+exec /usr/lib/linuxz/linuxz "$@"
+EOF
+  install -Dm644 "src-tauri/icons/128x128.png" "${pkgdir}/usr/share/icons/hicolor/128x128/apps/${pkgname}.png"
+  install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/${pkgname}.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=LinuxZ
+Comment=Linux-first DayZ launcher for DayZ
+Exec=/usr/bin/linuxz
+Icon=linuxz
+Terminal=false
+Categories=Game;
+StartupWMClass=LinuxZ
+EOF
+}
