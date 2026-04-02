@@ -22,6 +22,8 @@ pub async fn list_servers(
     enable_battlemetrics: bool,
     enable_dzsa: bool,
 ) -> Result<PaginatedServersResponse, AppError> {
+    let normalized_search = request.search.trim().to_lowercase();
+    let search_enabled = !normalized_search.is_empty();
     let mut servers = if enable_battlemetrics {
         battlemetrics::list_servers(request).await?
     } else {
@@ -31,64 +33,28 @@ pub async fn list_servers(
     if servers.is_empty() {
         servers = settings::load_cached_servers(db_path)?;
     } else {
-        servers = enrich_live_browser_data(servers).await;
         settings::cache_servers(db_path, &servers)?;
         servers = settings::merge_server_activity(db_path, servers)?;
     }
 
-    let normalized_search = request.search.to_lowercase();
-    let mut filtered = servers
-        .into_iter()
-        .filter(|server| {
-            if request.modded_only && !server.modded {
-                return false;
-            }
-            if request.official_only && !server.official {
-                return false;
-            }
-            if server.players < request.player_floor {
-                return false;
-            }
-            if normalized_search.is_empty() {
-                return true;
-            }
-            server
-                .display_name
-                .to_lowercase()
-                .contains(&normalized_search)
-                || server.map.to_lowercase().contains(&normalized_search)
-                || server.endpoint.to_lowercase().contains(&normalized_search)
-        })
-        .collect::<Vec<_>>();
+    let mut filtered = filter_servers(servers, request, &normalized_search);
+
+    if !search_enabled {
+        filtered = enrich_live_browser_data(filtered).await;
+    }
 
     if matches!(request.sort_by, ServerSort::Ping) {
         filtered = network_ping::enrich_rtt(filtered, Duration::from_secs(1)).await;
     }
 
-    filtered.sort_by(|left, right| match request.sort_by {
-        ServerSort::Players => right
-            .players
-            .cmp(&left.players)
-            .then_with(|| left.display_name.cmp(&right.display_name)),
-        ServerSort::Ping => left
-            .ping
-            .unwrap_or(u32::MAX)
-            .cmp(&right.ping.unwrap_or(u32::MAX))
-            .then_with(|| right.players.cmp(&left.players)),
-    });
+    sort_servers(&mut filtered, &request.sort_by);
 
-    let page_size = request.limit.max(1);
-    let page = request.page.max(1);
-    let start = page_size.saturating_mul(page.saturating_sub(1)) as usize;
-    let end = start.saturating_add(page_size as usize);
-    let has_previous_page = page > 1;
-    let has_next_page = filtered.len() > end;
+    let mut response = paginate_servers(filtered, request);
+    let mut page_items = response.items;
 
-    let mut page_items = if start >= filtered.len() {
-        Vec::new()
-    } else {
-        filtered[start..filtered.len().min(end)].to_vec()
-    };
+    if search_enabled {
+        page_items = enrich_live_browser_data(page_items).await;
+    }
 
     if !matches!(request.sort_by, ServerSort::Ping) {
         page_items = network_ping::enrich_rtt(page_items, Duration::from_secs(1)).await;
@@ -98,13 +64,10 @@ pub async fn list_servers(
         page_items = enrich_browser_page_with_dzsa(page_items).await;
     }
 
-    Ok(PaginatedServersResponse {
-        items: page_items,
-        page,
-        page_size,
-        has_previous_page,
-        has_next_page,
-    })
+    sort_servers(&mut page_items, &request.sort_by);
+    response.items = page_items;
+
+    Ok(response)
 }
 
 pub async fn get_server_details(
@@ -267,6 +230,79 @@ async fn enrich_live_browser_data(servers: Vec<ServerRecord>) -> Vec<ServerRecor
     }
     enriched.sort_by_key(|(index, _)| *index);
     enriched.into_iter().map(|(_, server)| server).collect()
+}
+
+fn filter_servers(
+    servers: Vec<ServerRecord>,
+    request: &ListServersRequest,
+    normalized_search: &str,
+) -> Vec<ServerRecord> {
+    servers
+        .into_iter()
+        .filter(|server| matches_server_filters(server, request, normalized_search))
+        .collect()
+}
+
+fn matches_server_filters(
+    server: &ServerRecord,
+    request: &ListServersRequest,
+    normalized_search: &str,
+) -> bool {
+    if request.modded_only && !server.modded {
+        return false;
+    }
+    if request.official_only && !server.official {
+        return false;
+    }
+    if server.players < request.player_floor {
+        return false;
+    }
+    if normalized_search.is_empty() {
+        return true;
+    }
+
+    server.display_name.to_lowercase().contains(normalized_search)
+        || server.map.to_lowercase().contains(normalized_search)
+        || server.endpoint.to_lowercase().contains(normalized_search)
+}
+
+fn sort_servers(servers: &mut [ServerRecord], sort_by: &ServerSort) {
+    servers.sort_by(|left, right| match sort_by {
+        ServerSort::Players => right
+            .players
+            .cmp(&left.players)
+            .then_with(|| left.display_name.cmp(&right.display_name)),
+        ServerSort::Ping => left
+            .ping
+            .unwrap_or(u32::MAX)
+            .cmp(&right.ping.unwrap_or(u32::MAX))
+            .then_with(|| right.players.cmp(&left.players)),
+    });
+}
+
+fn paginate_servers(
+    filtered: Vec<ServerRecord>,
+    request: &ListServersRequest,
+) -> PaginatedServersResponse {
+    let page_size = request.limit.max(1);
+    let page = request.page.max(1);
+    let start = page_size.saturating_mul(page.saturating_sub(1)) as usize;
+    let end = start.saturating_add(page_size as usize);
+    let has_previous_page = page > 1;
+    let has_next_page = filtered.len() > end;
+    let items = if start >= filtered.len() {
+        Vec::new()
+    } else {
+        filtered[start..filtered.len().min(end)].to_vec()
+    };
+
+    PaginatedServersResponse {
+        items,
+        page,
+        page_size,
+        has_previous_page,
+        has_next_page,
+    }
 }
 
 fn apply_matchmaking_snapshot(server: &mut ServerRecord, snapshot: &MatchmakingServerSnapshot) {

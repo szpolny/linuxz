@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { startTransition, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getServerLibrary, listServers, saveServerFavorite } from '../lib/api.ts'
 import type { ServerRecord } from '../lib/contracts.ts'
@@ -118,6 +119,7 @@ export function BrowserRoute() {
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const filters = parseBrowserFilters(searchParams)
+  const [searchInput, setSearchInput] = useState(filters.search)
 
   const serversQuery = useQuery({
     queryKey: ['servers', filters],
@@ -145,6 +147,24 @@ export function BrowserRoute() {
   function updateFilters(next: typeof filters) {
     setSearchParams(toBrowserSearchParams(next))
   }
+
+  useEffect(() => {
+    setSearchInput(filters.search)
+  }, [filters.search])
+
+  useEffect(() => {
+    if (searchInput === filters.search) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      startTransition(() => {
+        updateFilters({ ...filters, page: 1, search: searchInput })
+      })
+    }, 250)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [filters, searchInput])
 
   function toggleFavorite(server: ServerRecord) {
     favoriteMutation.mutate({ server, favorite: !server.isFavorite })
@@ -230,9 +250,9 @@ export function BrowserRoute() {
             id="search"
             icon={Search}
             label="Search"
-            value={filters.search}
+            value={searchInput}
             onChange={(event) => {
-              updateFilters({ ...filters, page: 1, search: event.target.value })
+              setSearchInput(event.target.value)
             }}
             placeholder="Server name or IP..."
           />
