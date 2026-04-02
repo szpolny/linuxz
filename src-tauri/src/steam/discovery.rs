@@ -92,9 +92,7 @@ pub fn detect_steam_installs() -> Result<Vec<SteamInstallResolved>, AppError> {
     Ok(candidates)
 }
 
-pub fn list_proton_installs(
-    preferred_id: Option<&str>,
-) -> Result<Vec<ProtonInstall>, AppError> {
+pub fn list_proton_installs(preferred_id: Option<&str>) -> Result<Vec<ProtonInstall>, AppError> {
     let installs = detect_steam_installs()?;
     let selected = select_install(&installs, preferred_id);
 

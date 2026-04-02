@@ -26,8 +26,6 @@ LinuxZ is a DayZ launcher built with Tauri, Vite, React, TypeScript, and Rust.
    makepkg -si
    ```
 
-The included [`PKGBUILD`](./packaging/arch/PKGBUILD) builds from the current checkout, compiles the Tauri app without distro-specific bundle targets, and installs a launcher wrapper plus the `libsteam_api.so` runtime library the binary needs on Arch. The frontend is still pinned to Node 22 in `.node-version`, but newer Arch `nodejs` releases currently build the app as well.
-
 ## Scripts
 
 - `pnpm install`

@@ -1,4 +1,4 @@
-use crate::contracts::{LaunchMode, LaunchSettings, ServerLibrary, ServerRecord};
+use crate::contracts::{LaunchSettings, ServerLibrary, ServerRecord};
 use crate::error::AppError;
 use rusqlite::{params, Connection, OptionalExtension};
 use std::collections::HashMap;
@@ -12,15 +12,10 @@ pub fn load_settings(db_path: &Path) -> Result<LaunchSettings, AppError> {
 
     match row {
         Ok(json) => {
-            let mut settings = serde_json::from_str::<LaunchSettings>(&json)?;
+            let settings = serde_json::from_str::<LaunchSettings>(&json)?;
             let needs_normalization = !json.contains("\"onboardingCompleted\"")
                 || !json.contains("\"customLaunchCommand\"")
-                || json.contains("\"enableDzsaExperimental\"")
-                || matches!(settings.launch_mode, LaunchMode::SteamHandoff);
-
-            if matches!(settings.launch_mode, LaunchMode::SteamHandoff) {
-                settings.launch_mode = LaunchMode::DirectProton;
-            }
+                || json.contains("\"enableDzsaExperimental\"");
 
             if needs_normalization {
                 save_settings(db_path, &settings)?;
@@ -212,14 +207,6 @@ pub fn record_recent_server(
 
     Ok(stored_server)
 }
-
-pub fn effective_launch_mode(
-    _settings: &LaunchSettings,
-    _direct_proton_available: bool,
-) -> LaunchMode {
-    LaunchMode::DirectProton
-}
-
 fn apply_server_activity(
     record: &mut ServerRecord,
     is_favorite: bool,

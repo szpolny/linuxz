@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub enum LaunchMode {
-    SteamHandoff,
+    #[serde(alias = "steamHandoff")]
     DirectProton,
 }
 
@@ -264,6 +264,25 @@ pub struct JoinJobStatus {
     pub ready_to_launch: bool,
     pub warnings: Vec<String>,
     pub launch_result: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LaunchMode;
+
+    #[test]
+    fn deserializes_legacy_steam_handoff_as_direct_proton() {
+        let mode = serde_json::from_str::<LaunchMode>("\"steamHandoff\"")
+            .expect("legacy launch mode should deserialize");
+        assert_eq!(mode, LaunchMode::DirectProton);
+    }
+
+    #[test]
+    fn serializes_launch_mode_as_direct_proton() {
+        let json =
+            serde_json::to_string(&LaunchMode::DirectProton).expect("launch mode should serialize");
+        assert_eq!(json, "\"directProton\"");
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

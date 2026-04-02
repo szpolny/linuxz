@@ -240,9 +240,7 @@ async fn prepare_join_impl(
         &resolved_mods,
     );
     let mut warnings = details.warnings;
-    if matches!(launch_mode, crate::contracts::LaunchMode::DirectProton)
-        && request.settings.preferred_proton_path.is_none()
-    {
+    if request.settings.preferred_proton_path.is_none() {
         if let Some(path) = proton_path {
             warnings.push(format!(
                 "Auto-detected Proton runtime at {path} for direct join launch."

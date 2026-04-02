@@ -1,6 +1,5 @@
 use crate::contracts::{DayzInstall, LaunchMode, LaunchSettings, RequiredMod};
 use crate::error::AppError;
-use crate::settings;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -44,63 +43,48 @@ pub fn launch(
     settings: &LaunchSettings,
     args: &[String],
 ) -> Result<String, AppError> {
-    let (launch_mode, proton_path) = resolve_runtime_launch_mode(dayz, settings);
-
-    match launch_mode {
-        LaunchMode::SteamHandoff => Err(AppError::new(
-            "Steam handoff is no longer supported. Use the direct Proton launch path.",
-        )),
-        LaunchMode::DirectProton => {
-            let proton = proton_path.ok_or_else(|| {
-                AppError::new("No Proton binary could be resolved for direct launch")
-            })?;
-            let steam_root = steam_root(dayz)?;
-            let library_root = game_library_root(dayz)?;
-            let executable = select_game_executable(dayz);
-            let launch_argv = build_direct_proton_argv(&proton, steam_root, &executable);
-            let mut command = build_launch_command(
-                &launch_argv,
-                args,
-                settings.custom_launch_command.as_deref(),
-            )?;
-            let mut compat_library_paths = vec![steam_root.to_string()];
-            if library_root != steam_root {
-                compat_library_paths.push(library_root.to_string());
-            }
-
-            command
-                .env("SteamAppId", DAYZ_APP_ID)
-                .env("SteamGameId", DAYZ_APP_ID)
-                .env("STEAM_COMPAT_APP_ID", DAYZ_APP_ID)
-                .env("STEAM_COMPAT_DATA_PATH", &dayz.compat_data_path)
-                .env("STEAM_COMPAT_CLIENT_INSTALL_PATH", steam_root)
-                .env("STEAM_COMPAT_INSTALL_PATH", &dayz.game_path)
-                .env("STEAM_COMPAT_LIBRARY_PATHS", compat_library_paths.join(":"));
-
-            if let Some(ld_preload) = build_overlay_preload(Path::new(steam_root)) {
-                command.env("LD_PRELOAD", ld_preload);
-            }
-
-            let status = command.status()?;
-            Ok(format!("Direct Proton launch exited with status {status}"))
-        }
+    let (_, proton_path) = resolve_runtime_launch_mode(dayz, settings);
+    let proton = proton_path
+        .ok_or_else(|| AppError::new("No Proton binary could be resolved for direct launch"))?;
+    let steam_root = steam_root(dayz)?;
+    let library_root = game_library_root(dayz)?;
+    let executable = select_game_executable(dayz);
+    let launch_argv = build_direct_proton_argv(&proton, steam_root, &executable);
+    let mut command = build_launch_command(
+        &launch_argv,
+        args,
+        settings.custom_launch_command.as_deref(),
+    )?;
+    let mut compat_library_paths = vec![steam_root.to_string()];
+    if library_root != steam_root {
+        compat_library_paths.push(library_root.to_string());
     }
+
+    command
+        .env("SteamAppId", DAYZ_APP_ID)
+        .env("SteamGameId", DAYZ_APP_ID)
+        .env("STEAM_COMPAT_APP_ID", DAYZ_APP_ID)
+        .env("STEAM_COMPAT_DATA_PATH", &dayz.compat_data_path)
+        .env("STEAM_COMPAT_CLIENT_INSTALL_PATH", steam_root)
+        .env("STEAM_COMPAT_INSTALL_PATH", &dayz.game_path)
+        .env("STEAM_COMPAT_LIBRARY_PATHS", compat_library_paths.join(":"));
+
+    if let Some(ld_preload) = build_overlay_preload(Path::new(steam_root)) {
+        command.env("LD_PRELOAD", ld_preload);
+    }
+
+    let status = command.status()?;
+    Ok(format!("Direct Proton launch exited with status {status}"))
 }
 
 pub fn resolve_runtime_launch_mode(
     dayz: &DayzInstall,
     settings: &LaunchSettings,
 ) -> (LaunchMode, Option<String>) {
-    let proton_path = resolve_proton_path(dayz, settings);
-    let direct_proton_available = proton_path.is_some();
-    let requested = settings::effective_launch_mode(settings, direct_proton_available);
-    let resolved_proton_path = if matches!(requested, LaunchMode::DirectProton) {
-        proton_path
-    } else {
-        None
-    };
-
-    (requested, resolved_proton_path)
+    (
+        LaunchMode::DirectProton,
+        resolve_proton_path(dayz, settings),
+    )
 }
 
 fn resolve_proton_path(dayz: &DayzInstall, settings: &LaunchSettings) -> Option<String> {
@@ -344,7 +328,7 @@ mod tests {
         let settings = LaunchSettings {
             onboarding_completed: false,
             default_player_name: "Szymon".to_string(),
-            launch_mode: LaunchMode::SteamHandoff,
+            launch_mode: LaunchMode::DirectProton,
             preferred_steam_install_id: None,
             preferred_proton_path: None,
             custom_launch_command: None,
@@ -371,17 +355,14 @@ mod tests {
     }
 
     #[test]
-    fn normalizes_legacy_steam_handoff_to_direct_proton_when_available() {
+    fn reports_direct_proton_when_runtime_is_available() {
         let temp = unique_test_dir();
         let proton_dir = temp.join("steamapps/common/Proton - Experimental");
         std::fs::create_dir_all(&proton_dir).expect("test proton dir");
         std::fs::write(proton_dir.join("proton"), b"#!/bin/sh").expect("test proton file");
 
         let dayz = build_test_dayz(temp.join("steamapps/appmanifest_221100.acf"));
-        let settings = LaunchSettings {
-            launch_mode: LaunchMode::SteamHandoff,
-            ..LaunchSettings::default()
-        };
+        let settings = LaunchSettings::default();
 
         let (mode, proton_path) = resolve_runtime_launch_mode(&dayz, &settings);
         assert_eq!(mode, LaunchMode::DirectProton);
@@ -391,7 +372,7 @@ mod tests {
     }
 
     #[test]
-    fn uses_direct_proton_only_when_requested_and_available() {
+    fn uses_direct_proton_when_requested_and_available() {
         let temp = unique_test_dir();
         let proton_dir = temp.join("steamapps/common/Proton - Experimental");
         std::fs::create_dir_all(&proton_dir).expect("test proton dir");
