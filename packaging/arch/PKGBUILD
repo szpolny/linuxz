@@ -1,5 +1,5 @@
 pkgname=linuxz
-pkgver=0.1.0
+pkgver=0.1.0.r20.g77ce15b
 pkgrel=1
 pkgdesc="Linux-first DayZ launcher for DayZ"
 arch=('x86_64')
