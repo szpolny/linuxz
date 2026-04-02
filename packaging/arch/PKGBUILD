@@ -18,7 +18,63 @@ makedepends=(
 options=('!debug' '!buildflags')
 
 _repo_root="$(realpath "${startdir}/../..")"
-_builddir="${pkgname}-${pkgver}"
+_builddir="${pkgname}-src"
+
+pkgver() {
+  cd "${_repo_root}"
+
+  local basever revcount short_hash dirty_hash untracked_files
+  basever="$(
+    sed -nE 's/^[[:space:]]*"version":[[:space:]]*"([^"]+)".*/\1/p' package.json \
+      | head -n1
+  )"
+  revcount="$(git rev-list --count HEAD)"
+  short_hash="$(git rev-parse --short HEAD)"
+
+  printf '%s.r%s.g%s' "${basever}" "${revcount}" "${short_hash}"
+
+  untracked_files="$(
+    git ls-files --others --exclude-standard -- \
+      . \
+      ':(exclude)packaging/arch/pkg' \
+      ':(exclude)packaging/arch/src' \
+      ':(exclude)dist' \
+      ':(exclude)node_modules' \
+      ':(exclude)src-tauri/target'
+  )"
+
+  if ! git diff --no-ext-diff --quiet HEAD -- \
+    . \
+    ':(exclude)packaging/arch/pkg' \
+    ':(exclude)packaging/arch/src' \
+    ':(exclude)dist' \
+    ':(exclude)node_modules' \
+    ':(exclude)src-tauri/target' || [[ -n "${untracked_files}" ]]; then
+    dirty_hash="$(
+      {
+        git diff --no-ext-diff HEAD -- \
+          . \
+          ':(exclude)packaging/arch/pkg' \
+          ':(exclude)packaging/arch/src' \
+          ':(exclude)dist' \
+          ':(exclude)node_modules' \
+          ':(exclude)src-tauri/target'
+
+        if [[ -n "${untracked_files}" ]]; then
+          while IFS= read -r path; do
+            printf 'untracked %s\n' "${path}"
+            sha256sum -- "${path}"
+          done <<< "${untracked_files}"
+        fi
+      } \
+        | sha256sum \
+        | cut -c1-8
+    )"
+    printf '.d%s' "${dirty_hash}"
+  fi
+
+  printf '\n'
+}
 
 prepare() {
   rm -rf "${srcdir:?}/${_builddir}"
