@@ -23,7 +23,6 @@ pub async fn list_servers(
     enable_dzsa: bool,
 ) -> Result<PaginatedServersResponse, AppError> {
     let normalized_search = request.search.trim().to_lowercase();
-    let search_enabled = !normalized_search.is_empty();
     let cached_servers = settings::load_cached_servers(db_path)
         .unwrap_or_default()
         .into_iter()
@@ -47,10 +46,8 @@ pub async fn list_servers(
     }
 
     let mut filtered = filter_servers(servers, request, &normalized_search);
-
-    if !search_enabled {
-        filtered = enrich_live_browser_data(filtered).await;
-    }
+    filtered = enrich_live_browser_data(filtered).await;
+    filtered = retain_browser_visible_servers(filtered);
 
     if matches!(request.sort_by, ServerSort::Ping) {
         filtered = network_ping::enrich_rtt(filtered, Duration::from_secs(1)).await;
@@ -60,10 +57,6 @@ pub async fn list_servers(
 
     let mut response = paginate_servers(filtered, request);
     let mut page_items = response.items;
-
-    if search_enabled {
-        page_items = enrich_live_browser_data(page_items).await;
-    }
 
     if !matches!(request.sort_by, ServerSort::Ping) {
         page_items = network_ping::enrich_rtt(page_items, Duration::from_secs(1)).await;
@@ -182,9 +175,14 @@ pub async fn get_server_details(
 }
 
 pub async fn refresh_server_library(mut library: ServerLibrary) -> ServerLibrary {
-    library.favorites = network_ping::enrich_rtt(library.favorites, Duration::from_secs(1)).await;
-    library.recents = network_ping::enrich_rtt(library.recents, Duration::from_secs(1)).await;
+    library.favorites = refresh_library_collection(library.favorites).await;
+    library.recents = refresh_library_collection(library.recents).await;
     library
+}
+
+async fn refresh_library_collection(servers: Vec<ServerRecord>) -> Vec<ServerRecord> {
+    let servers = enrich_live_browser_data(servers).await;
+    network_ping::enrich_rtt(servers, Duration::from_secs(1)).await
 }
 
 async fn enrich_live_browser_data(servers: Vec<ServerRecord>) -> Vec<ServerRecord> {
@@ -251,6 +249,13 @@ fn filter_servers(
     servers
         .into_iter()
         .filter(|server| matches_server_filters(server, request, normalized_search))
+        .collect()
+}
+
+fn retain_browser_visible_servers(servers: Vec<ServerRecord>) -> Vec<ServerRecord> {
+    servers
+        .into_iter()
+        .filter(|server| server.readiness == "live" || server.last_joined_at.is_some())
         .collect()
 }
 
@@ -399,4 +404,71 @@ async fn enrich_browser_page_with_dzsa(servers: Vec<ServerRecord>) -> Vec<Server
     }
     enriched.sort_by_key(|(index, _)| *index);
     enriched.into_iter().map(|(_, server)| server).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::retain_browser_visible_servers;
+    use crate::contracts::ServerRecord;
+
+    fn sample_server(
+        endpoint: &str,
+        readiness: &str,
+        last_joined_at: Option<&str>,
+    ) -> ServerRecord {
+        ServerRecord {
+            endpoint: endpoint.to_string(),
+            ip: String::from("127.0.0.1"),
+            query_port: 2305,
+            connect_port: Some(2302),
+            display_name: format!("Server {endpoint}"),
+            map: String::from("chernarusplus"),
+            players: 12,
+            max_players: 60,
+            ping: Some(44),
+            source_coverage: vec![String::from("test")],
+            readiness: readiness.to_string(),
+            version: Some(String::from("1.0")),
+            country: Some(String::from("PL")),
+            has_password: false,
+            modded: true,
+            mod_count: 12,
+            official: false,
+            is_favorite: false,
+            last_joined_at: last_joined_at.map(str::to_string),
+        }
+    }
+
+    #[test]
+    fn keeps_live_servers_in_browser_results() {
+        let servers = vec![sample_server("1.2.3.4:2305", "live", None)];
+
+        let visible = retain_browser_visible_servers(servers);
+
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].endpoint, "1.2.3.4:2305");
+    }
+
+    #[test]
+    fn keeps_recent_servers_even_when_offline() {
+        let servers = vec![sample_server(
+            "1.2.3.4:2305",
+            "cached",
+            Some("2026-04-03T12:00:00.000Z"),
+        )];
+
+        let visible = retain_browser_visible_servers(servers);
+
+        assert_eq!(visible.len(), 1);
+        assert_eq!(visible[0].endpoint, "1.2.3.4:2305");
+    }
+
+    #[test]
+    fn drops_non_recent_offline_servers_from_browser_results() {
+        let servers = vec![sample_server("1.2.3.4:2305", "cached", None)];
+
+        let visible = retain_browser_visible_servers(servers);
+
+        assert!(visible.is_empty());
+    }
 }

@@ -58,6 +58,7 @@ type ServerCardProps = {
 function ServerCard({ server, onToggleFavorite, pendingEndpoint }: ServerCardProps) {
   const lastJoinedLabel = formatLastJoined(server.lastJoinedAt)
   const favoritePending = pendingEndpoint === server.endpoint
+  const isOffline = server.readiness !== 'live'
   const modCountLabel =
     server.modded && server.modCount === 0 && !server.sourceCoverage.includes('dzsa')
       ? '? mods'
@@ -79,6 +80,7 @@ function ServerCard({ server, onToggleFavorite, pendingEndpoint }: ServerCardPro
                   <History size={13} /> Recent
                 </span>
               ) : null}
+              {isOffline ? <span className="badge badge-bad">Offline</span> : null}
               {server.official ? <span className="badge badge-good">Official</span> : null}
               <span className={`badge ${server.modded ? 'badge-good' : ''}`}>
                 {server.modded ? 'Modded' : 'Vanilla-ish'}
@@ -152,6 +154,8 @@ export function BrowserRoute() {
   const paginationLabel = serversQuery.data ? `Page ${serversQuery.data.page}` : `Page ${filters.page}`
   const pendingEndpoint = favoriteMutation.isPending ? favoriteMutation.variables?.server.endpoint ?? null : null
   const serverTypeValue = filters.officialOnly ? 'official' : filters.moddedOnly ? 'modded' : 'all'
+  const mostRecentServer = serverLibraryQuery.data?.recents[0]
+  const mostRecentServerOffline = mostRecentServer?.readiness !== 'live'
 
   function updateFilters(next: typeof filters) {
     setSearchParams(toBrowserSearchParams(next))
@@ -184,8 +188,6 @@ export function BrowserRoute() {
     void serverLibraryQuery.refetch()
   }
 
-  const mostRecentServer = serverLibraryQuery.data?.recents[0]
-
   return (
     <div className="grid">
       {mostRecentServer ? (
@@ -194,7 +196,10 @@ export function BrowserRoute() {
             <h2>
               <History size={20} className="stat-icon" /> Quick Join
             </h2>
-            <span className="badge">Last played {formatLastJoined(mostRecentServer.lastJoinedAt)}</span>
+            <div className="button-row">
+              {mostRecentServerOffline ? <span className="badge badge-bad">Offline</span> : null}
+              <span className="badge">Last played {formatLastJoined(mostRecentServer.lastJoinedAt)}</span>
+            </div>
           </div>
           <div className="server-row" style={{ background: 'transparent', border: 'none', padding: 0 }}>
             <div className="server-card-top" style={{ alignItems: 'center' }}>
